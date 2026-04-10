@@ -28,7 +28,10 @@ export class WebNavigator {
 
     this.stagehand = new Stagehand({
       env: 'LOCAL',
-      model: 'groq-llama-3.3-70b-versatile',
+      model: {
+        modelName: 'groq/meta-llama/llama-4-scout-17b-16e-instruct',
+        apiKey: process.env.GROQ_API_KEY,
+      },
       localBrowserLaunchOptions: {
         headless: this.headless,
       },

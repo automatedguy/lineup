@@ -28,7 +28,7 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
 
 | Agent | Model | Runtime |
 |-------|-------|---------|
-| **WebNavigator** | Groq free tier | Cloud |
+| **WebNavigator** | meta-llama/llama-4-scout-17b-16e-instruct (Groq free tier) | Cloud |
 | **WebDescriber** | Qwen3-VL:8b | Local (Ollama) |
 | **WebPlanner** | qwen3:8b | Local (Ollama) |
 | **WebExecutor** | None (orchestration code) | — |
