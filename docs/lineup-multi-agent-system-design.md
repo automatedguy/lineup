@@ -1,7 +1,7 @@
 # LineUp Multi-Agent System Design
 
-CONFLUENCE DOC: 
-JIRA Story: <https://automationthings.atlassian.net/browse/LINEUP-5>
+CONFLUENCE DOC: <https://lineupautomation.atlassian.net/wiki/spaces/~557058e9cceeb6db1943b7832f4a5ce8346321/pages/3637252/LineUp+Multi-Agent+System+Design>
+JIRA STORY: <https://automationthings.atlassian.net/browse/LINEUP-5>
 
 ## Architecture Decision — 4-Agent Pipeline & WebNavigator Service
 
