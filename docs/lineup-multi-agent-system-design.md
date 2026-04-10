@@ -1,6 +1,7 @@
 # LineUp Multi-Agent System Design
 
-# Architecture Decision — 4-Agent Pipeline & WebNavigator Service
+
+## Architecture Decision — 4-Agent Pipeline & WebNavigator Service
 
 **Date:** 2026-04-09  
 **Participants:** Gabriel Cespedes, Claude (AI Assistant)  
@@ -14,7 +15,10 @@
 ### The Architecture: 4 Agents + 1 Service
 
 ```
-WebNavigator (service) → WebDescriber → WebPlanner → WebExecutor → Reporter
+                    WebNavigator (service)
+                         │
+                         ▼ sole consumer
+WebExecutor → WebDescriber → WebPlanner → WebExecutor → Reporter
 ```
 
 ### WebNavigator Service *(Stagehand wrapper with Groq API free tier — Cloud)*
@@ -27,7 +31,7 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 | **Input** | Navigation steps in natural language |
 | **Actions** | Open URLs, navigate, interact with page elements, take snapshots, capture DOM, capture Network traffic via Stagehand APIs |
 | **Output** | Page screenshot (`PageScreenshot`) if required |
-| **Consumers** | Orchestrator (navigate + screenshot), WebExecutor (act) |
+| **Consumers** | WebExecutor only (sole gateway — no other agent interacts with WebNavigator directly) |
 
 ### WebDescriber *(Ollama Qwen3-VL:8b — Local)*
 
@@ -66,8 +70,13 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 ## Pipeline
 
 ```
-WebNavigator ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-  (service)        (eyes)          (brain)        (hands)        (writer)
+                ┌──────────────┐
+                │ WebNavigator │  (service — browser access)
+                └──────┬───────┘
+                       │ sole consumer
+                       ▼
+                  WebExecutor ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
+                    (hands)        (eyes)          (brain)        (hands)        (writer)
 ```
 
 ### Product Differentiator
@@ -99,7 +108,7 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 
 ### WebDescriber — the eyes
 
-Receives a page screenshot from WebNavigator. Performs visual analysis via the vision model. Produces a `PageDescription`.
+Receives a page screenshot from WebExecutor. Performs visual analysis via the vision model. Produces a `PageDescription`.
 
 **Scope:** One screenshot in, one PageDescription out. No navigation, no planning.  
 **Vision model:** Qwen3-VL:8b (local via Ollama)
@@ -135,7 +144,7 @@ Receives TestLog, generates a self-contained HTML report with embedded screensho
 | **WebNavigator** | Service | Browser interaction | Stagehand v3.2 (all APIs) | Analysis, planning, reporting |
 | **WebDescriber** | Agent | See and describe | Qwen3-VL (vision model) | Planning, navigation, test execution |
 | **WebPlanner** | Agent | Think and plan | Qwen3 (text LLM) | Browser interaction |
-| **WebExecutor** | Agent | Act and verify | WebNavigator's act() | Planning, page analysis |
+| **WebExecutor** | Agent | Sole gateway to browser — act and verify | WebNavigator (all APIs) | Planning, page analysis |
 | **Reporter** | Code | Summarize | Template engine | Browser interaction, planning |
 
 ---
@@ -148,7 +157,7 @@ The previous 4-agent design had Stagehand calls scattered across WebDescriber an
 - **Testability** — Other agents can be tested with a mock WebNavigator, no real browser needed
 - **Shared browser session** — WebNavigator manages one Stagehand instance; all agents share cookies, state, and context
 - **Swappability** — Could replace Stagehand with Playwright, Puppeteer, or any other tool without touching agent logic
-- **Flexible consumption** — WebExecutor calls `act()` in a loop; orchestrator calls `screenshot()` to feed WebDescriber. No forced input/output shape
+- **Flexible consumption** — WebExecutor calls `act()` in a loop and `screenshot()` to feed WebDescriber. No forced input/output shape
 
 ---
 
@@ -178,7 +187,7 @@ interface Agent<TInput, TOutput> {
 }
 ```
 
-### WebNavigator Service (shared, injected into agents)
+### WebNavigator Service (shared, injected exclusively into WebExecutor)
 ```typescript
 class WebNavigator {
   private stagehand: Stagehand;
