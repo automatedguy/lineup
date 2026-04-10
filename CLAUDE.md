@@ -6,14 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Lineup is a multi-agent UI testing automation desktop application (initially targeting Mac) that autonomously discovers bugs in web applications. It will be commercialized and marketed via LinkedIn.
 
-**v1.0 scope:** Five agents with a deterministic pipeline: `navigate → describe → plan → execute → report`.
+**v1.0 scope:** Four agents + one shared service with a deterministic pipeline: `navigate → describe → plan → execute → report`.
 
 **Product differentiator:** Zero selectors end-to-end. Vision in, natural language plan out, natural language execution. A manual tester LOOKS at the page, not at the DOM — Lineup does the same.
 
 ## Technical Decisions
 
 - **Language:** TypeScript (Python Stagehand requires Browserbase cloud; TypeScript supports local Chromium via Playwright)
-- **Browser interaction:** Stagehand v3.2 (local mode) — abstracted behind the WebNavigator agent
+- **Browser interaction:** Stagehand v3.2 (local mode) — abstracted behind the WebNavigator service
   - `.act(instruction)` — natural language browser actions (no CSS selectors)
   - `.extract(prompt, zodSchema)` — structured data extraction with Zod type safety
   - `.observe()` — page state analysis
@@ -37,13 +37,13 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
 ## Architecture
 
 ```
-v1.0: 5-Agent Deterministic Pipeline
+v1.0: 4 Agents + 1 Service, Deterministic Pipeline
 
 WebNavigator ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-  (browser)        (eyes)          (brain)        (hands)        (writer)
+  (service)        (eyes)          (brain)        (hands)        (writer)
 ```
 
-### Agent Interface Pattern
+### Agent Interface Pattern (pipeline agents)
 ```typescript
 interface Agent<TInput, TOutput> {
   name: string;
@@ -51,11 +51,13 @@ interface Agent<TInput, TOutput> {
 }
 ```
 
+WebNavigator is a **shared service** (not an agent) — injected into agents via dependency injection.
+
 ### Agents
 
 | Agent | Role | Responsibility | Uses | Does NOT do | Output |
 |-------|------|----------------|------|-------------|--------|
-| **WebNavigator** | Browser | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs), Groq free tier | Planning, analysis, reporting | `PageScreenshot` and raw browser data |
+| **WebNavigator** | Service | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs), Groq free tier | Planning, analysis, reporting | `PageScreenshot` and raw browser data |
 | **WebDescriber** | Eyes | Receive a screenshot, produce a detailed visual description from a UI tester's perspective | Qwen3-VL:8b (local Ollama) | Planning, navigation, test execution | `PageDescription` |
 | **WebPlanner** | Brain | Think like a QA tester — generate test scenarios from visual description | qwen3:8b (local Ollama) | Browser interaction | `TestPlan` |
 | **WebExecutor** | Hands | Execute test scenarios step by step using natural language actions | WebNavigator's `.act()` | Planning, page analysis | `TestLog` |
@@ -63,7 +65,7 @@ interface Agent<TInput, TOutput> {
 
 ### Separation of Concerns
 
-- **WebNavigator** is a shared service — both WebDescriber (via screenshot) and WebExecutor (via `act()`) use it
+- **WebNavigator** is a shared service (not an agent) — both WebDescriber (via screenshot) and WebExecutor (via `act()`) consume it
 - **WebDescriber** only sees and describes — one screenshot in, one `PageDescription` out
 - **WebPlanner** only thinks and plans — receives `PageDescription`, outputs `TestPlan`
 - **WebExecutor** only acts and verifies — natural language actions via WebNavigator's `act()`
@@ -77,7 +79,7 @@ interface Agent<TInput, TOutput> {
 - `TestLog` — test trace, logs, and assertion results from WebExecutor
 - `TestReport` — self-contained HTML report with embedded screenshots, metrics, severity classification
 
-### WebNavigator — Stagehand Wrapper
+### WebNavigator Service — Stagehand Wrapper
 
 WebNavigator wraps Stagehand v3.2 and exposes all browser capabilities as a unified service:
 

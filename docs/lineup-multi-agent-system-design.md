@@ -1,6 +1,6 @@
 # LineUp Multi-Agent System Design
 
-# Architecture Decision — 5-Agent Pipeline & WebNavigator
+# Architecture Decision — 4-Agent Pipeline & WebNavigator Service
 
 **Date:** 2026-04-09  
 **Participants:** Gabriel Cespedes, Claude (AI Assistant)  
@@ -11,19 +11,23 @@
 
 ## Context
 
-### The 5-Agent Architecture
+### The Architecture: 4 Agents + 1 Service
 
 ```
-WebNavigator → WebDescriber → WebPlanner → WebExecutor → Reporter
+WebNavigator (service) → WebDescriber → WebPlanner → WebExecutor → Reporter
 ```
 
-### WebNavigator *(Stagehand wrapper with Groq API free tier — Cloud)*
+### WebNavigator Service *(Stagehand wrapper with Groq API free tier — Cloud)*
+
+WebNavigator is a **shared service**, not a pipeline agent. It does not implement `Agent<TInput, TOutput>` because it has multiple capabilities with no single input/output shape. Stagehand is the AI agent underneath — WebNavigator is the boundary we control.
 
 | Aspect | Detail |
 |--------|--------|
+| **Type** | Shared service (not a pipeline agent) |
 | **Input** | Navigation steps in natural language |
 | **Actions** | Open URLs, navigate, interact with page elements, take snapshots, capture DOM, capture Network traffic via Stagehand APIs |
-| **Output** | Page screenshot (`PageScreenshot`) if required. |
+| **Output** | Page screenshot (`PageScreenshot`) if required |
+| **Consumers** | Orchestrator (navigate + screenshot), WebExecutor (act) |
 
 ### WebDescriber *(Ollama Qwen3-VL:8b — Local)*
 
@@ -63,7 +67,7 @@ WebNavigator → WebDescriber → WebPlanner → WebExecutor → Reporter
 
 ```
 WebNavigator ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-  (browser)        (eyes)          (brain)        (hands)        (writer)
+  (service)        (eyes)          (brain)        (hands)        (writer)
 ```
 
 ### Product Differentiator
@@ -72,11 +76,13 @@ WebNavigator ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor �
 
 ---
 
-## Agent Responsibilities (Detailed)
+## Detailed Responsibilities
 
-### WebNavigator — the browser
+### WebNavigator — the browser (Shared Service)
 
-A wrapper around [Stagehand v3.2](https://github.com/browserbase/stagehand). All browser interaction flows through this single agent. Other agents never touch Stagehand directly.
+A wrapper around [Stagehand v3.2](https://github.com/browserbase/stagehand). All browser interaction flows through this single service. Other agents never touch Stagehand directly.
+
+WebNavigator is a **shared service**, not a pipeline agent. It does not implement `Agent<TInput, TOutput>` because it has multiple capabilities (navigate, act, screenshot, etc.) with no single input/output shape. The caller decides what to use — sometimes just navigation + status, sometimes navigation + screenshot. Stagehand is the AI agent underneath; WebNavigator is the boundary we control.
 
 **Scope:** Browser lifecycle, navigation, screenshots, DOM snapshots, network capture, and Stagehand's act/extract/observe APIs.
 
@@ -124,24 +130,25 @@ Receives TestLog, generates a self-contained HTML report with embedded screensho
 
 ## Separation of Concerns
 
-| Agent | Responsibility | Uses | Does NOT do |
-|-------|---------------|------|-------------|
-| **WebNavigator** | Browser interaction | Stagehand v3.2 (all APIs) | Analysis, planning, reporting |
-| **WebDescriber** | See and describe | Qwen3-VL (vision model) | Planning, navigation, test execution |
-| **WebPlanner** | Think and plan | Qwen3 (text LLM) | Browser interaction |
-| **WebExecutor** | Act and verify | WebNavigator's act() | Planning, page analysis |
-| **Reporter** | Summarize | Template engine | Browser interaction, planning |
+| Component | Type | Responsibility | Uses | Does NOT do |
+|-----------|------|---------------|------|-------------|
+| **WebNavigator** | Service | Browser interaction | Stagehand v3.2 (all APIs) | Analysis, planning, reporting |
+| **WebDescriber** | Agent | See and describe | Qwen3-VL (vision model) | Planning, navigation, test execution |
+| **WebPlanner** | Agent | Think and plan | Qwen3 (text LLM) | Browser interaction |
+| **WebExecutor** | Agent | Act and verify | WebNavigator's act() | Planning, page analysis |
+| **Reporter** | Code | Summarize | Template engine | Browser interaction, planning |
 
 ---
 
-## Why WebNavigator?
+## Why WebNavigator as a Service?
 
-The previous 4-agent design had Stagehand calls scattered across WebDescriber and WebExecutor. Adding WebNavigator as a dedicated wrapper provides:
+The previous 4-agent design had Stagehand calls scattered across WebDescriber and WebExecutor. Adding WebNavigator as a dedicated service provides:
 
 - **Single point of coupling** — If Stagehand releases breaking changes, only WebNavigator needs updating
 - **Testability** — Other agents can be tested with a mock WebNavigator, no real browser needed
 - **Shared browser session** — WebNavigator manages one Stagehand instance; all agents share cookies, state, and context
 - **Swappability** — Could replace Stagehand with Playwright, Puppeteer, or any other tool without touching agent logic
+- **Flexible consumption** — WebExecutor calls `act()` in a loop; orchestrator calls `screenshot()` to feed WebDescriber. No forced input/output shape
 
 ---
 
@@ -151,7 +158,7 @@ Traditional testing tools (Selenium, Cypress, Playwright) require selectors — 
 
 Lineup's approach:
 
-1. **Navigate** to the page (WebNavigator)
+1. **Navigate** to the page (WebNavigator service)
 2. **See** the page like a human (vision model via WebDescriber)
 3. **Plan** tests like a QA tester (natural language via WebPlanner)
 4. **Execute** tests like a human (natural language actions via WebExecutor)
@@ -161,33 +168,38 @@ No selectors. No code. No maintenance when the UI changes.
 
 ---
 
-## Interface Pattern
+## Interface Patterns
 
+### Agent Interface (pipeline agents)
 ```typescript
 interface Agent<TInput, TOutput> {
   name: string;
   run(input: TInput): Promise<TOutput>;
 }
+```
 
-// WebNavigator is a shared service, not a pipeline agent.
-// Other agents receive it via dependency injection.
-interface WebNavigator {
+### WebNavigator Service (shared, injected into agents)
+```typescript
+class WebNavigator {
+  private stagehand: Stagehand;
+  private page: Page;
+
   // Lifecycle
-  init(): Promise<void>;
-  close(): Promise<void>;
+  async init(): Promise<void>;
+  async close(): Promise<void>;
 
   // Navigation
-  navigate(url: string): Promise<void>;
+  async navigate(url: string): Promise<void>;
 
-  // Stagehand core APIs
-  act(instruction: string): Promise<ActResult>;
-  extract<T>(instruction: string, schema: ZodSchema<T>): Promise<T>;
-  observe(instruction: string): Promise<ObserveResult[]>;
+  // Stagehand core APIs (AI-powered via Groq)
+  async act(instruction: string): Promise<ActResult>;
+  async extract<T>(instruction: string, schema: ZodSchema<T>): Promise<T>;
+  async observe(instruction: string): Promise<ObserveResult[]>;
 
   // Page capture
-  screenshot(): Promise<Buffer>;
-  getHtmlSnapshot(): Promise<string>;
-  getNetworkActivity(): Promise<NetworkEntry[]>;
+  async screenshot(): Promise<Buffer>;
+  async getHtmlSnapshot(): Promise<string>;
+  async getNetworkActivity(): Promise<NetworkEntry[]>;
 }
 ```
 
