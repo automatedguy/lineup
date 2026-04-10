@@ -1,5 +1,7 @@
 # LineUp Multi-Agent System Design
 
+CONFLUENCE DOC: 
+JIRA Story: <https://automationthings.atlassian.net/browse/LINEUP-5>
 
 ## Architecture Decision — 4-Agent Pipeline & WebNavigator Service
 
@@ -15,9 +17,9 @@
 ### The Architecture: 4 Agents + 1 Service
 
 ```
-                    WebNavigator (service)
-                         │
-                         ▼ sole consumer
+WebNavigator (service)
+    │
+    ▼ sole consumer
 WebExecutor → WebDescriber → WebPlanner → WebExecutor → Reporter
 ```
 
