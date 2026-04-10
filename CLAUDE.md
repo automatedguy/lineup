@@ -39,8 +39,13 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
 ```
 v1.0: 4 Agents + 1 Service, Deterministic Pipeline
 
-WebNavigator ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-  (service)        (eyes)          (brain)        (hands)        (writer)
+                ┌──────────────┐
+                │ WebNavigator │  (service — browser access)
+                └──────┬───────┘
+                       │ sole consumer
+                       ▼
+                  WebExecutor ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
+                    (hands)        (eyes)          (brain)        (hands)        (writer)
 ```
 
 ### Agent Interface Pattern (pipeline agents)
@@ -51,7 +56,7 @@ interface Agent<TInput, TOutput> {
 }
 ```
 
-WebNavigator is a **shared service** (not an agent) — injected into agents via dependency injection.
+WebNavigator is a **shared service** (not an agent) — injected exclusively into WebExecutor via dependency injection. No other agent interacts with WebNavigator directly.
 
 ### Agents
 
@@ -60,15 +65,15 @@ WebNavigator is a **shared service** (not an agent) — injected into agents via
 | **WebNavigator** | Service | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs), Groq free tier | Planning, analysis, reporting | `PageScreenshot` and raw browser data |
 | **WebDescriber** | Eyes | Receive a screenshot, produce a detailed visual description from a UI tester's perspective | Qwen3-VL:8b (local Ollama) | Planning, navigation, test execution | `PageDescription` |
 | **WebPlanner** | Brain | Think like a QA tester — generate test scenarios from visual description | qwen3:8b (local Ollama) | Browser interaction | `TestPlan` |
-| **WebExecutor** | Hands | Execute test scenarios step by step using natural language actions | WebNavigator's `.act()` | Planning, page analysis | `TestLog` |
+| **WebExecutor** | Hands | **Sole gateway to WebNavigator** — execute test scenarios step by step, capture screenshots, and provide browser data to other agents | WebNavigator (all APIs) | Planning, page analysis | `TestLog` |
 | **Reporter** | Writer | Generate self-contained HTML report with embedded screenshots, metrics, severity | Template engine (plain code, no LLM) | Browser interaction, planning | `TestReport` |
 
 ### Separation of Concerns
 
-- **WebNavigator** is a shared service (not an agent) — both WebDescriber (via screenshot) and WebExecutor (via `act()`) consume it
-- **WebDescriber** only sees and describes — one screenshot in, one `PageDescription` out
+- **WebNavigator** is a shared service (not an agent) — consumed **exclusively** by WebExecutor. No other agent interacts with WebNavigator directly.
+- **WebExecutor** is the **sole gateway** to the browser — all browser interaction (screenshots, navigation, actions, extraction) flows through WebExecutor. It captures screenshots and passes them to WebDescriber; it executes actions from test plans.
+- **WebDescriber** only sees and describes — receives a screenshot (provided by WebExecutor), produces a `PageDescription`
 - **WebPlanner** only thinks and plans — receives `PageDescription`, outputs `TestPlan`
-- **WebExecutor** only acts and verifies — natural language actions via WebNavigator's `act()`
 - **Reporter** only summarizes — plain code, no LLM, no browser interaction
 
 ### Key Data Models
@@ -102,6 +107,7 @@ WebNavigator wraps Stagehand v3.2 and exposes all browser capabilities as a unif
 - **Session/auth:** Shared browser context persists cookies; cookie injection layer planned for authenticated flows
 - **Reports must be self-contained:** Embedded base64 images, inline CSS, works offline
 - **Pin Stagehand version** and abstract behind WebNavigator to guard against breaking changes
+- **WebExecutor is the sole gateway to WebNavigator** — no agent besides WebExecutor may call WebNavigator APIs directly. This keeps all browser interaction centralized and auditable.
 
 ## Integrations
 
