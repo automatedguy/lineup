@@ -12,7 +12,7 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
 
 ## Technical Decisions
 
-- **Language:** TypeScript (Python Stagehand requires Browserbase cloud; TypeScript supports local Chromium via Playwright — no cloud dependency)
+- **Language:** TypeScript (Python Stagehand requires Browserbase cloud; TypeScript supports local Chromium via Playwright)
 - **Browser interaction:** Stagehand v3.2 (local mode) — abstracted behind the WebNavigator agent
   - `.act(instruction)` — natural language browser actions (no CSS selectors)
   - `.extract(prompt, zodSchema)` — structured data extraction with Zod type safety
@@ -20,11 +20,19 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
   - `page.screenshot()` — visual capture
   - `page.evaluate()` — DOM snapshot capture
   - `page.on("request"/"response")` — network activity capture
-- **Vision model:** Qwen3-VL:8b via Ollama (local) for page visual analysis
 - **Schema validation:** Zod
 - **Orchestration:** Pre-defined deterministic pipeline for v1.0; agent interfaces (`Agent<TInput, TOutput>`) designed to support AI-driven orchestration in v2.0
-- **LLM support:** Ollama (local, default), OpenAI, Anthropic, Google Gemini
 - **Integrations:** Jira (bug ticket creation), Confluence (documentation)
+
+### Model Assignments
+
+| Agent | Model | Runtime |
+|-------|-------|---------|
+| **WebNavigator** | Groq free tier | Cloud |
+| **WebDescriber** | Qwen3-VL:8b | Local (Ollama) |
+| **WebPlanner** | qwen3:8b | Local (Ollama) |
+| **WebExecutor** | None (orchestration code) | — |
+| **Reporter** | None (template code) | — |
 
 ## Architecture
 
@@ -47,29 +55,27 @@ interface Agent<TInput, TOutput> {
 
 | Agent | Role | Responsibility | Uses | Does NOT do | Output |
 |-------|------|----------------|------|-------------|--------|
-| **WebNavigator** | Browser | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs) | Planning, analysis, reporting | Raw browser data (screenshots, DOM, network, action results) |
-| **WebDescriber** | Eyes | Observe a single page and produce a visual description | Vision model (Qwen3-VL) + raw DOM + raw network from WebNavigator | Planning, navigation, test execution | `PageDescription` |
-| **WebPlanner** | Brain | Think like a QA tester — generate test scenarios from page description | LLM (Ollama, OpenAI, Anthropic) | Browser interaction | `TestPlan` |
-| **WebExecutor** | Hands | Execute test scenarios step by step using natural language actions | WebNavigator's `.act()` | Planning, page analysis | `TestResult[]` |
-| **Reporter** | Writer | Generate human-readable bug report | Template engine | Browser interaction, planning | Self-contained HTML report |
+| **WebNavigator** | Browser | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs), Groq free tier | Planning, analysis, reporting | `PageScreenshot` and raw browser data |
+| **WebDescriber** | Eyes | Receive a screenshot, produce a detailed visual description from a UI tester's perspective | Qwen3-VL:8b (local Ollama) | Planning, navigation, test execution | `PageDescription` |
+| **WebPlanner** | Brain | Think like a QA tester — generate test scenarios from visual description | qwen3:8b (local Ollama) | Browser interaction | `TestPlan` |
+| **WebExecutor** | Hands | Execute test scenarios step by step using natural language actions | WebNavigator's `.act()` | Planning, page analysis | `TestLog` |
+| **Reporter** | Writer | Generate self-contained HTML report with embedded screenshots, metrics, severity | Template engine (plain code, no LLM) | Browser interaction, planning | `TestReport` |
 
 ### Separation of Concerns
 
-The original 3-agent architecture conflated two responsibilities in WebExplorer: observing the page and planning what to test. The 5-agent pipeline separates these cleanly:
-
-- **WebNavigator** is a shared service — both WebDescriber and WebExecutor use it for browser interaction
-- **WebDescriber** only sees and describes (vision model analyzes screenshot; DOM and network captured raw)
-- **WebPlanner** only thinks and plans (receives all three data sources: visual description, DOM, network)
-- **WebExecutor** only acts and verifies (natural language actions via Stagehand `.act()`)
-- **Reporter** only summarizes (no browser interaction)
+- **WebNavigator** is a shared service — both WebDescriber (via screenshot) and WebExecutor (via `act()`) use it
+- **WebDescriber** only sees and describes — one screenshot in, one `PageDescription` out
+- **WebPlanner** only thinks and plans — receives `PageDescription`, outputs `TestPlan`
+- **WebExecutor** only acts and verifies — natural language actions via WebNavigator's `act()`
+- **Reporter** only summarizes — plain code, no LLM, no browser interaction
 
 ### Key Data Models
 
-- `PageDescription` — visual description (from vision model), raw HTML DOM, raw network activity
+- `PageScreenshot` — PNG buffer captured by WebNavigator
+- `PageDescription` — detailed visual description of the page from a UI tester's perspective
 - `TestPlan` — test scenarios with natural language steps, generated by WebPlanner
-- `TestCase` / `TestResult` — test actions, pass/fail, screenshots, step timings, error details
-- `Bug` — discovered issue with severity, steps to reproduce, expected vs actual, screenshots
-- `ScanReport` — final aggregation with severity classification and metrics
+- `TestLog` — test trace, logs, and assertion results from WebExecutor
+- `TestReport` — self-contained HTML report with embedded screenshots, metrics, severity classification
 
 ### WebNavigator — Stagehand Wrapper
 
@@ -88,7 +94,7 @@ WebNavigator wraps Stagehand v3.2 and exposes all browser capabilities as a unif
 
 ## Design Constraints
 
-- **No cloud dependency:** Desktop app must work fully offline with local Ollama + local Chromium
+- **Minimal cloud dependency:** Only WebNavigator uses Groq free tier; WebDescriber and WebPlanner run fully local via Ollama
 - **Zero selectors:** Vision in, natural language out — no CSS/XPath selectors in the test pipeline
 - **Non-determinism mitigation:** Stagehand `.act()` is inherently non-deterministic; use retry logic + screenshot evidence
 - **Session/auth:** Shared browser context persists cookies; cookie injection layer planned for authenticated flows
@@ -118,4 +124,4 @@ All in `~/projects/`:
 
 - Stagehand docs: https://docs.stagehand.dev
 - Stagehand GitHub: https://github.com/browserbase/stagehand
-- Architecture decisions: `docs/confluence-chat-summary-2026-04-04.md`, `docs/architecture-decision-5-agent-pipeline.md`
+- Architecture decisions: `docs/lineup-multi-agent-system-design.md`
