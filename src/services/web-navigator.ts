@@ -17,14 +17,13 @@ export interface WebNavigatorConfig {
 export class WebNavigator {
   private stagehand: Stagehand | null = null;
   private readonly headless: boolean;
-  private initialized = false;
 
   constructor(config: WebNavigatorConfig = {}) {
     this.headless = config.headless ?? true;
   }
 
   async init(): Promise<void> {
-    if (this.initialized) return;
+    if (this.stagehand) return;
 
     this.stagehand = new Stagehand({
       env: 'LOCAL',
@@ -38,14 +37,12 @@ export class WebNavigator {
     });
 
     await this.stagehand.init();
-    this.initialized = true;
   }
 
   async close(): Promise<void> {
-    if (!this.initialized || !this.stagehand) return;
+    if (!this.stagehand) return;
     await this.stagehand.close();
     this.stagehand = null;
-    this.initialized = false;
   }
 
   async navigate(url: string): Promise<void> {
@@ -96,7 +93,7 @@ export class WebNavigator {
   }
 
   private getStagehand(): Stagehand {
-    if (!this.initialized || !this.stagehand) {
+    if (!this.stagehand) {
       throw new Error('WebNavigator is not initialized. Call init() first.');
     }
     return this.stagehand;
