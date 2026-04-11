@@ -16,7 +16,7 @@ this.stagehand = new Stagehand({...}); // caller A
 // caller B also creates one, overwrites A's reference
 ```
 
-**2. Stale reference after browser crash** — If the Chromium process dies unexpectedly (OOM, kill, etc.), `this.stagehand` remains non-null. All subsequent calls throw from Stagehand internals with cryptic errors, and `init()` silently returns thinking everything is fine.
+**2. ~~Stale reference after browser crash~~** (FIXED 2026-04-11) — If the Chromium process dies unexpectedly (OOM, kill, etc.), `this.stagehand` remains non-null. All subsequent calls throw from Stagehand internals with cryptic errors, and `init()` silently returns thinking everything is fine. **Fix:** `close()` uses try/finally to always reset state; `withBrowserGuard()` wraps all public methods to detect browser death, reset state, and throw a clear error so `init()` can restart.
 
 **3. `getPage()` always takes index `[0]`** — If an `act()` instruction opens a new tab or popup, the relevant page moves to a different index. `pages()[0]` still returns the original (now-stale) page, so subsequent actions operate on the wrong page.
 
