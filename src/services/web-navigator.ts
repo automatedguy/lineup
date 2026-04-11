@@ -16,6 +16,7 @@ export interface WebNavigatorConfig {
 
 export class WebNavigator {
   private stagehand: Stagehand | null = null;
+  private initPromise: Promise<void> | null = null;
   private readonly headless: boolean;
 
   constructor(config: WebNavigatorConfig = {}) {
@@ -23,8 +24,13 @@ export class WebNavigator {
   }
 
   async init(): Promise<void> {
-    if (this.stagehand) return;
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    return this.initPromise;
+  }
 
+  private async doInit(): Promise<void> {
     this.stagehand = new Stagehand({
       env: 'LOCAL',
       model: {
@@ -43,6 +49,7 @@ export class WebNavigator {
     if (!this.stagehand) return;
     await this.stagehand.close();
     this.stagehand = null;
+    this.initPromise = null;
   }
 
   async navigate(url: string): Promise<void> {
