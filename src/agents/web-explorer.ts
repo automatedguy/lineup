@@ -12,25 +12,18 @@ export class WebExplorer implements Agent<ExplorationPlan, DescriptionRequest> {
   }
 
   async run(plan: ExplorationPlan): Promise<DescriptionRequest> {
-    const log: string[] = [];
-
     console.log(`[${this.name}] Navigating to ${plan.url}`);
     await this.navigator.navigate(plan.url);
-    log.push(`Navigated to ${plan.url}`);
 
     if (plan.actions) {
       for (const action of plan.actions) {
         console.log(`[${this.name}] Acting: ${action}`);
         await this.navigator.act(action);
-        log.push(`Acted: ${action}`);
       }
     }
 
-    console.log(`[${this.name}] Exploration complete (${log.length} steps)`);
+    console.log(`[${this.name}] Exploration complete — requesting description`);
 
-    return {
-      url: plan.url,
-      explorationLog: log,
-    };
+    return { url: plan.url };
   }
 }
