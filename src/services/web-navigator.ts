@@ -16,16 +16,21 @@ export interface WebNavigatorConfig {
 
 export class WebNavigator {
   private stagehand: Stagehand | null = null;
+  private initPromise: Promise<void> | null = null;
   private readonly headless: boolean;
-  private initialized = false;
 
   constructor(config: WebNavigatorConfig = {}) {
     this.headless = config.headless ?? true;
   }
 
   async init(): Promise<void> {
-    if (this.initialized) return;
+    if (!this.initPromise) {
+      this.initPromise = this.doInit();
+    }
+    return this.initPromise;
+  }
 
+  private async doInit(): Promise<void> {
     this.stagehand = new Stagehand({
       env: 'LOCAL',
       model: {
@@ -38,65 +43,102 @@ export class WebNavigator {
     });
 
     await this.stagehand.init();
-    this.initialized = true;
   }
 
   async close(): Promise<void> {
-    if (!this.initialized || !this.stagehand) return;
-    await this.stagehand.close();
-    this.stagehand = null;
-    this.initialized = false;
+    if (!this.stagehand) return;
+    try {
+      await this.stagehand.close();
+    } finally {
+      this.stagehand = null;
+      this.initPromise = null;
+    }
   }
 
   async navigate(url: string): Promise<void> {
-    await this.getPage().goto(url, { waitUntil: 'domcontentloaded' });
+    return this.withBrowserGuard(async () => {
+      await this.getPage().goto(url, { waitUntil: 'domcontentloaded' });
+    });
   }
 
   async act(instruction: string): Promise<ActResult> {
-    return this.getStagehand().act(instruction);
+    return this.withBrowserGuard(() => this.getStagehand().act(instruction));
   }
 
   async extract<T extends z.ZodTypeAny>(
     instruction: string,
     schema: T,
   ): Promise<z.infer<T>> {
-    return this.getStagehand().extract(instruction, schema) as Promise<
-      z.infer<T>
-    >;
+    return this.withBrowserGuard(
+      () =>
+        this.getStagehand().extract(instruction, schema) as Promise<
+          z.infer<T>
+        >,
+    );
   }
 
   async observe(instruction?: string): Promise<Action[]> {
-    if (instruction) {
-      return this.getStagehand().observe(instruction);
-    }
-    return this.getStagehand().observe();
-  }
-
-  async screenshot(): Promise<Buffer> {
-    return this.getPage().screenshot({ type: 'png', fullPage: false });
-  }
-
-  async getHtmlSnapshot(): Promise<string> {
-    return this.getPage().evaluate(() => document.documentElement.outerHTML);
-  }
-
-  async getNetworkActivity(): Promise<NetworkEntry[]> {
-    return this.getPage().evaluate(() => {
-      return performance.getEntriesByType('resource').map((entry) => {
-        const e = entry as PerformanceResourceTiming;
-        return {
-          url: e.name,
-          resourceType: e.initiatorType,
-          startTime: e.startTime,
-          duration: e.duration,
-          transferSize: e.transferSize,
-        };
-      });
+    return this.withBrowserGuard(() => {
+      if (instruction) {
+        return this.getStagehand().observe(instruction);
+      }
+      return this.getStagehand().observe();
     });
   }
 
+  async screenshot(): Promise<Buffer> {
+    return this.withBrowserGuard(() =>
+      this.getPage().screenshot({ type: 'png', fullPage: false }),
+    );
+  }
+
+  async getHtmlSnapshot(): Promise<string> {
+    return this.withBrowserGuard(() =>
+      this.getPage().evaluate(() => document.documentElement.outerHTML),
+    );
+  }
+
+  async getNetworkActivity(): Promise<NetworkEntry[]> {
+    return this.withBrowserGuard(() =>
+      this.getPage().evaluate(() => {
+        return performance.getEntriesByType('resource').map((entry) => {
+          const e = entry as PerformanceResourceTiming;
+          return {
+            url: e.name,
+            resourceType: e.initiatorType,
+            startTime: e.startTime,
+            duration: e.duration,
+            transferSize: e.transferSize,
+          };
+        });
+      }),
+    );
+  }
+
+  private async withBrowserGuard<T>(fn: () => Promise<T>): Promise<T> {
+    try {
+      return await fn();
+    } catch (error) {
+      if (this.isBrowserDead(error)) {
+        this.stagehand = null;
+        this.initPromise = null;
+        throw new Error(
+          'Browser crashed or was closed unexpectedly. Call init() to restart.',
+        );
+      }
+      throw error;
+    }
+  }
+
+  private isBrowserDead(error: unknown): boolean {
+    const msg = error instanceof Error ? error.message : '';
+    return /target closed|browser.*closed|connection closed|protocol error/i.test(
+      msg,
+    );
+  }
+
   private getStagehand(): Stagehand {
-    if (!this.initialized || !this.stagehand) {
+    if (!this.stagehand) {
       throw new Error('WebNavigator is not initialized. Call init() first.');
     }
     return this.stagehand;

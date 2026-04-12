@@ -18,3 +18,5 @@ CLAUDE.md
 integrations/
 models/
 index.ts
+test-navigator.ts
+*.png

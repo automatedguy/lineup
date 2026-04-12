@@ -4,9 +4,15 @@
   "description": "Autonomous UI testing automation platform",
   "type": "module",
   "main": "dist/index.js",
+  "engines": {
+    "node": "^20.19.0 || >=22.12.0"
+  },
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts"
+  },
+  "overrides": {
+    "langsmith": "0.5.18"
   },
   "dependencies": {
     "@browserbasehq/stagehand": "^3.2.1",
