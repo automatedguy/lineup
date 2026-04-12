@@ -17,5 +17,5 @@ dist/
 CLAUDE.md
 integrations/
 models/
-index.ts
+/index.ts
 *.png
