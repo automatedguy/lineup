@@ -14,4 +14,5 @@ WebExplorer Agent - [LINEUP11](https://automationthings.atlassian.net/browse/LIN
 WebDescriber Agent - [LINEUP-7](https://automationthings.atlassian.net/browse/LINEUP-7)
 Orchestrator Agent - [LINEUP-13](https://automationthings.atlassian.net/browse/LINEUP-13)
 WebPlanner Agent - [LINEUP-8](https://automationthings.atlassian.net/browse/LINEUP-8)
+WebExecutor Agent - [LINEUP-9](https://automationthings.atlassian.net/browse/LINEUP-9)
 
