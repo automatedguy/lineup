@@ -20,6 +20,9 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
     );
 
     for (const scenario of plan.scenarios) {
+      console.log(`[${this.name}] Navigating to ${plan.url}`);
+      await this.navigator.navigate(plan.url);
+
       console.log(`[${this.name}] Scenario: ${scenario.name}`);
       const stepResults: StepResult[] = [];
       let scenarioFailed = false;
