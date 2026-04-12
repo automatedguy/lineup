@@ -3,18 +3,18 @@
 CONFLUENCE DOC: <https://lineupautomation.atlassian.net/wiki/spaces/~557058e9cceeb6db1943b7832f4a5ce8346321/pages/3637252/LineUp+Multi-Agent+System+Design>
 JIRA STORY: <https://automationthings.atlassian.net/browse/LINEUP-5>
 
-## Architecture Decision — 5-Agent Pipeline & WebNavigator Service
+## Architecture Decision — 5-Agent Pipeline, WebNavigator Service & Orchestrator
 
 **Date:** 2026-04-09  
 **Participants:** Gabriel Cespedes, Claude (AI Assistant)  
 **Status:** Decision made  
-**Last updated:** 2026-04-11  
+**Last updated:** 2026-04-12  
 
 ---
 
 ## Context
 
-### The Architecture: 5 Agents + 1 Service
+### The Architecture: 5 Agents + 1 Service + Orchestrator
 
 ```
                        ┌──────────────┐
@@ -24,6 +24,9 @@ JIRA STORY: <https://automationthings.atlassian.net/browse/LINEUP-5>
            ▼(navigate, act)   ▼(screenshot)             ▼(act)
      WebExplorer ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
        (legs)          (eyes)          (brain)        (hands)        (writer)
+                              ▲
+                              │
+                        Orchestrator  (controller — wires pipeline, owns lifecycle)
 ```
 
 ### WebNavigator Service *(Stagehand wrapper with Groq API free tier — Cloud)*
@@ -156,6 +159,21 @@ Receives TestLog, generates a self-contained HTML report with embedded screensho
 
 **Output:** `TestReport`
 
+### Orchestrator — the controller
+
+Not an agent — plain TypeScript code that wires the deterministic pipeline. Owns the WebNavigator lifecycle (`init()`/`close()`), instantiates all agents with the shared WebNavigator via DI, and chains their outputs sequentially.
+
+**Scope:** Create WebNavigator, create agents, run pipeline (`ExplorationPlan → ... → TestReport`), handle errors, always close WebNavigator.  
+**No LLM** — the intelligence is in the agents, not the orchestrator.
+
+```typescript
+class Orchestrator {
+  constructor(config?: OrchestratorConfig);
+  async run(plan: ExplorationPlan): Promise<TestReport>;
+  async close(): Promise<void>;
+}
+```
+
 ---
 
 ## Separation of Concerns
@@ -168,6 +186,7 @@ Receives TestLog, generates a self-contained HTML report with embedded screensho
 | **WebPlanner** | Agent | Think and plan | Qwen3 (text LLM) | Browser interaction |
 | **WebExecutor** | Agent | Gateway to browser actions — act and verify | WebNavigator (act, navigate, extract, observe) | Planning, page analysis, screenshots |
 | **Reporter** | Code | Summarize | Template engine | Browser interaction, planning |
+| **Orchestrator** | Controller | Wire pipeline, own lifecycle | All agents, WebNavigator | Data transformation, browser interaction, analysis |
 
 ---
 
@@ -231,6 +250,23 @@ class WebNavigator {
   async screenshot(): Promise<Buffer>;
   async getHtmlSnapshot(): Promise<string>;
   async getNetworkActivity(): Promise<NetworkEntry[]>;
+}
+```
+
+### Orchestrator (controller — wires pipeline, owns WebNavigator lifecycle)
+```typescript
+class Orchestrator {
+  private readonly navigator: WebNavigator;
+  private readonly explorer: WebExplorer;
+  private readonly describer: WebDescriber;
+  private readonly planner: WebPlanner;
+  private readonly executor: WebExecutor;
+  private readonly reporter: Reporter;
+
+  constructor(config?: OrchestratorConfig);
+
+  async run(plan: ExplorationPlan): Promise<TestReport>;
+  async close(): Promise<void>;
 }
 ```
 
