@@ -3,24 +3,27 @@
 CONFLUENCE DOC: <https://lineupautomation.atlassian.net/wiki/spaces/~557058e9cceeb6db1943b7832f4a5ce8346321/pages/3637252/LineUp+Multi-Agent+System+Design>
 JIRA STORY: <https://automationthings.atlassian.net/browse/LINEUP-5>
 
-## Architecture Decision — 4-Agent Pipeline & WebNavigator Service
+## Architecture Decision — 5-Agent Pipeline & WebNavigator Service
 
 **Date:** 2026-04-09  
 **Participants:** Gabriel Cespedes, Claude (AI Assistant)  
 **Status:** Decision made  
-**Last updated:** 2026-04-10  
+**Last updated:** 2026-04-11  
 
 ---
 
 ## Context
 
-### The Architecture: 4 Agents + 1 Service
+### The Architecture: 5 Agents + 1 Service
 
 ```
-WebNavigator (service)
-    │
-    ▼ sole consumer
-WebExecutor → WebDescriber → WebPlanner → WebExecutor → Reporter
+                       ┌──────────────┐
+                       │ WebNavigator │  (service — browser access)
+                       └──────┬───────┘
+           ┌──────────────────┼─────────────────────────┐
+           ▼(navigate, act)   ▼(screenshot)             ▼(act)
+     WebExplorer ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
+       (legs)          (eyes)          (brain)        (hands)        (writer)
 ```
 
 ### WebNavigator Service *(Stagehand wrapper with Groq API free tier — Cloud)*
@@ -33,14 +36,22 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 | **Input** | Navigation steps in natural language |
 | **Actions** | Open URLs, navigate, interact with page elements, take snapshots, capture DOM, capture Network traffic via Stagehand APIs |
 | **Output** | Page screenshot (`PageScreenshot`) if required |
-| **Consumers** | WebExecutor only (sole gateway — no other agent interacts with WebNavigator directly) |
+| **Consumers** | WebExplorer (navigate, act), WebDescriber (screenshot), WebExecutor (act, navigate, extract, observe) |
+
+### WebExplorer
+
+| Aspect | Detail |
+|--------|--------|
+| **Input** | `ExplorationPlan` |
+| **Actions** | Navigate to target pages and explore the application via WebNavigator |
+| **Output** | `DescriptionRequest` |
 
 ### WebDescriber *(Ollama Qwen3-VL:8b — Local)*
 
 | Aspect | Detail |
 |--------|--------|
-| **Input** | `PageScreenshot` |
-| **Actions** | Perform visual analysis and create a detailed description in natural language from the perspective of a web application testing expert |
+| **Input** | Description request |
+| **Actions** | Request screenshot from WebNavigator, perform visual analysis via vision model, create a detailed description in natural language from the perspective of a senior web application tester documenting a page for scripting test scenarios |
 | **Output** | Page description in natural language (`PageDescription`) |
 
 ### WebPlanner *(Ollama Qwen3:8b — Local)*
@@ -72,13 +83,13 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 ## Pipeline
 
 ```
-                ┌──────────────┐
-                │ WebNavigator │  (service — browser access)
-                └──────┬───────┘
-                       │ sole consumer
-                       ▼
-                  WebExecutor ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-                    (hands)        (eyes)          (brain)        (hands)        (writer)
+                       ┌──────────────┐
+                       │ WebNavigator │  (service — browser access)
+                       └──────┬───────┘
+           ┌──────────────────┼──────────────────────────┐
+           ▼(navigate, act)   ▼(screenshot)              ▼(act)
+     WebExplorer ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
+       (legs)          (eyes)          (brain)        (hands)        (writer)
 ```
 
 ### Product Differentiator
@@ -108,11 +119,19 @@ WebNavigator is a **shared service**, not a pipeline agent. It does not implemen
 | Network Capture | `page.on("request"/"response")` | Record network activity |
 | Lifecycle | `stagehand.init()` / `stagehand.close()` | Browser session management |
 
+### WebExplorer — the legs
+
+Receives an `ExplorationPlan`, navigates to target pages and explores the application via WebNavigator's `navigate()` and `act()` APIs. Produces a `DescriptionRequest` for WebDescriber.
+
+**Scope:** ExplorationPlan in, DescriptionRequest out. Navigation and exploration only — no visual analysis, no planning, no test execution.
+
+**Output:** `DescriptionRequest`
+
 ### WebDescriber — the eyes
 
-Receives a page screenshot from WebExecutor. Performs visual analysis via the vision model. Produces a `PageDescription`.
+Receives a description request, requests a screenshot from WebNavigator, performs visual analysis via the vision model from the perspective of a senior web application tester documenting a page for scripting test scenarios. Produces a `PageDescription`.
 
-**Scope:** One screenshot in, one PageDescription out. No navigation, no planning.  
+**Scope:** Description request in, screenshot via WebNavigator, PageDescription out. No navigation, no planning, no browser actions.  
 **Vision model:** Qwen3-VL:8b (local via Ollama)
 
 **Output:** `PageDescription`
@@ -127,7 +146,7 @@ Receives `PageDescription` and thinks like a QA tester. Generates test scenarios
 
 ### WebExecutor — the hands
 
-Takes the TestPlan, executes each scenario step by step using WebNavigator's `act()` with natural language instructions. No selectors.
+Gateway to browser actions. Takes the TestPlan, executes each scenario step by step using WebNavigator's `act()` with natural language instructions. No selectors.
 
 **Output:** `TestLog`
 
@@ -144,9 +163,10 @@ Receives TestLog, generates a self-contained HTML report with embedded screensho
 | Component | Type | Responsibility | Uses | Does NOT do |
 |-----------|------|---------------|------|-------------|
 | **WebNavigator** | Service | Browser interaction | Stagehand v3.2 (all APIs) | Analysis, planning, reporting |
-| **WebDescriber** | Agent | See and describe | Qwen3-VL (vision model) | Planning, navigation, test execution |
+| **WebExplorer** | Agent | Navigate and explore | WebNavigator (navigate, act) | Visual analysis, planning, test execution, reporting |
+| **WebDescriber** | Agent | See and describe | WebNavigator (screenshot), Qwen3-VL (vision model) | Planning, navigation, browser actions, test execution |
 | **WebPlanner** | Agent | Think and plan | Qwen3 (text LLM) | Browser interaction |
-| **WebExecutor** | Agent | Sole gateway to browser — act and verify | WebNavigator (all APIs) | Planning, page analysis |
+| **WebExecutor** | Agent | Gateway to browser actions — act and verify | WebNavigator (act, navigate, extract, observe) | Planning, page analysis, screenshots |
 | **Reporter** | Code | Summarize | Template engine | Browser interaction, planning |
 
 ---
@@ -159,7 +179,7 @@ The previous 4-agent design had Stagehand calls scattered across WebDescriber an
 - **Testability** — Other agents can be tested with a mock WebNavigator, no real browser needed
 - **Shared browser session** — WebNavigator manages one Stagehand instance; all agents share cookies, state, and context
 - **Swappability** — Could replace Stagehand with Playwright, Puppeteer, or any other tool without touching agent logic
-- **Flexible consumption** — WebExecutor calls `act()` in a loop and `screenshot()` to feed WebDescriber. No forced input/output shape
+- **Flexible consumption** — WebExplorer calls `navigate()` and `act()` to explore; WebDescriber calls `screenshot()` to capture pages; WebExecutor calls `act()` to execute test steps. No forced input/output shape
 
 ---
 
@@ -169,8 +189,8 @@ Traditional testing tools (Selenium, Cypress, Playwright) require selectors — 
 
 Lineup's approach:
 
-1. **Navigate** to the page (WebNavigator service)
-2. **See** the page like a human (vision model via WebDescriber)
+1. **Explore** the application (WebExplorer via WebNavigator)
+2. **See** the page like a human (vision model via WebDescriber, screenshot via WebNavigator)
 3. **Plan** tests like a QA tester (natural language via WebPlanner)
 4. **Execute** tests like a human (natural language actions via WebExecutor)
 5. **Report** results in plain English (Reporter)
@@ -189,7 +209,7 @@ interface Agent<TInput, TOutput> {
 }
 ```
 
-### WebNavigator Service (shared, injected exclusively into WebExecutor)
+### WebNavigator Service (shared, injected into WebExplorer, WebDescriber, and WebExecutor)
 ```typescript
 class WebNavigator {
   private stagehand: Stagehand;

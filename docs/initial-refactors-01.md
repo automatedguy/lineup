@@ -52,6 +52,8 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **13. `GROQ_API_KEY` in Stagehand config** — The key is passed in the config object. If Stagehand logs its initialization config at any verbosity level, the key could appear in stdout/log files.
 
+**14. Design change** - WebDescriber will be in charge of requesting screenshots to WebNavigator service. WebDescriber will receive a "Description request", perform a take screenshot call via WebNavigator Service, receive the screenshot and then perform visual description using the perspective of a senior web application tester documenting a page for scripting test scenarios.
+
 ---
 
 ## Summary
