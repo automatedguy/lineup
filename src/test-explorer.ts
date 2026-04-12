@@ -11,6 +11,12 @@ const plan: ExplorationPlan = {
   actions: [
     'Type "Lineup autonomous testing" in the search box',
     'Click the Search button',
+    'Wait for results to be displayed',
+    'Click the first result',
+    'Wait for the page to load',
+    'Extract the title of the page',
+    'Extract the URL of the page',
+    'Extract the description of the page',
   ],
 };
 
