@@ -1,7 +1,13 @@
+import { z } from 'zod';
 import type { Agent } from '../types/agent.js';
 import type { TestPlan, TestStep } from '../types/test-plan.js';
 import type { TestLog, StepResult, ScenarioResult } from '../types/test-log.js';
 import type { WebNavigator } from '../services/web-navigator.js';
+
+const assertionSchema = z.object({
+  pass: z.boolean(),
+  reason: z.string(),
+});
 
 export class WebExecutor implements Agent<TestPlan, TestLog> {
   readonly name = 'WebExecutor';
@@ -82,8 +88,7 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
       if (step.type === 'action') {
         await this.navigator.act(step.instruction);
       } else {
-        const text = this.extractAssertionText(step.instruction);
-        await this.navigator.waitForElementVisible(text);
+        await this.executeAssertion(step.instruction);
       }
       return {
         step,
@@ -100,18 +105,23 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
     }
   }
 
-  private extractAssertionText(instruction: string): string {
-    // Extract text between quotes: Verify "Something" is displayed
+  private async executeAssertion(instruction: string): Promise<void> {
+    // Try fast path: extract quoted text and use waitForElementVisible
     const quoted = instruction.match(/"([^"]+)"/);
-    if (quoted) return quoted[1];
+    if (quoted) {
+      await this.navigator.waitForElementVisible(quoted[1]);
+      return;
+    }
 
-    // Extract text after common assertion prefixes
-    const prefixed = instruction.match(
-      /(?:verify|check|confirm|assert|ensure)\s+(?:that\s+)?(.+?)(?:\s+is\s+(?:displayed|visible|present|shown))?$/i,
+    // Fallback: use extract() to ask the LLM to evaluate the assertion
+    console.log(`[${this.name}]     (fallback: using extract for assertion)`);
+    const result = await this.navigator.extract(
+      `Look at the current page and evaluate this assertion: "${instruction}". Is it true or false? Provide a brief reason.`,
+      assertionSchema,
     );
-    if (prefixed) return prefixed[1];
 
-    // Fallback: use the full instruction as search text
-    return instruction;
+    if (!result.pass) {
+      throw new Error(`Assertion failed: ${result.reason}`);
+    }
   }
 }
