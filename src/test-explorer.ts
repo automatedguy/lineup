@@ -7,13 +7,10 @@ const navigator = new WebNavigator({ headless: false });
 const explorer = new WebExplorer(navigator);
 
 const plan: ExplorationPlan = {
-  url: 'https://www.google.com',
+  url: 'https://testpages.eviltester.com/pages/basics/basic-web-page/',
   actions: [
-    'Type "Testrail Automation" in the search box',
+    'Type "click on "Click Me" button"',
     'Click the Search button',
-    'Wait for results to be displayed',
-    'Click the first matching result',
-    'Wait for the page to load',
   ],
 };
 
