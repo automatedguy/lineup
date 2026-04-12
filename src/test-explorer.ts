@@ -9,10 +9,10 @@ const explorer = new WebExplorer(navigator);
 const plan: ExplorationPlan = {
   url: 'https://www.google.com',
   actions: [
-    'Type "Lineup autonomous testing" in the search box',
+    'Type "Testrail Automation" in the search box',
     'Click the Search button',
     'Wait for results to be displayed',
-    'Click the first result',
+    'Click the first matching result',
     'Wait for the page to load',
     'Extract the title of the page',
     'Extract the URL of the page',
