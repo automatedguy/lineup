@@ -5,6 +5,8 @@ import { WebExplorer } from './agents/web-explorer.js';
 import { WebDescriber } from './agents/web-describer.js';
 import { WebPlanner } from './agents/web-planner.js';
 import { WebExecutor } from './agents/web-executor.js';
+import { Reporter } from './agents/reporter.js';
+import { writeFileSync, mkdirSync } from 'node:fs';
 import type { ExplorationPlan } from './types/exploration-plan.js';
 
 const navigator = new WebNavigator({ headless: false });
@@ -13,9 +15,10 @@ const explorer = new WebExplorer(navigator);
 const describer = new WebDescriber(navigator, ollama);
 const planner = new WebPlanner(ollama);
 const executor = new WebExecutor(navigator);
+const reporter = new Reporter();
 
-const plan: ExplorationPlan = {
-  url: 'https://www.carregistration.com/',
+const explorationPlan: ExplorationPlan = {
+  url: 'https://www.google.com',
 };
 
 try {
@@ -23,13 +26,13 @@ try {
   await navigator.init();
 
   console.log('Running WebExplorer...');
-  const request = await explorer.run(plan);
+  const descriptionRequest = await explorer.run(explorationPlan);
 
   console.log('Running WebDescriber...');
-  const description = await describer.run(request);
+  const pageDescription = await describer.run(descriptionRequest);
 
   console.log('Running WebPlanner...');
-  const testPlan = await planner.run(description);
+  const testPlan = await planner.run(pageDescription);
 
   console.log(`\n--- TestPlan: ${testPlan.scenarios.length} scenarios ---\n`);
 
@@ -57,6 +60,16 @@ try {
     }
     console.log();
   }
+
+  console.log('Running Reporter...');
+  const report = await reporter.run(testLog);
+
+  const reportDir = 'reports';
+  mkdirSync(reportDir, { recursive: true });
+  const reportPath = `${reportDir}/report-${Date.now()}.html`;
+  writeFileSync(reportPath, report.html);
+  report.filePath = reportPath;
+  console.log(`\nReport saved to ${reportPath}`);
 } catch (error) {
   console.error('Error:', error);
 } finally {
