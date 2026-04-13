@@ -47,14 +47,14 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
     this.ollama = ollama;
   }
 
-  async run(description: PageDescription): Promise<TestPlan> {
-    console.log(`[${this.name}] Generating test plan for ${description.url}`);
+  async run(pageDescription: PageDescription): Promise<TestPlan> {
+    console.log(`[${this.name}] Generating test plan for ${pageDescription.url}`);
 
     const response = await this.ollama.chat(TEXT_MODEL, [
       { role: 'system', content: SYSTEM_PROMPT },
       {
         role: 'user',
-        content: `Generate test scenarios for this page:\n\n${description.description}`,
+        content: `Generate test scenarios for this page:\n\n${pageDescription.description}`,
       },
     ]);
 
@@ -62,11 +62,22 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
     const scenarios = this.parseScenarios(response);
     console.log(`[${this.name}] Generated ${scenarios.length} scenarios`);
 
-    return {
-      url: description.url,
+    const testPlan: TestPlan = {
+      url: pageDescription.url,
       scenarios,
-      pageDescription: description.description,
+      pageDescription: pageDescription.description,
     };
+
+    console.log('\n--- TestPlan ---');
+    console.log(`URL: ${testPlan.url}`);
+    for (const scenario of testPlan.scenarios) {
+      console.log(`\n  Scenario: ${scenario.name}`);
+      for (const step of scenario.steps) {
+        console.log(`    [${step.type}] ${step.instruction}`);
+      }
+    }
+
+    return testPlan;
   }
 
   private parseScenarios(response: string): TestScenario[] {
