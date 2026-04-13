@@ -44,6 +44,12 @@ export class WebDescriber implements Agent<DescriptionRequest, PageDescription> 
 
     console.log(`[${this.name}] Description complete (${description.length} chars)`);
 
+    // log the description
+    console.log('\n--- PageDescription ---');
+    console.log(`URL: ${request.url}`);
+    console.log(`Screenshot: ${screenshot.length} bytes`);
+    console.log(`\nDescription:\n${description}`);
+
     return {
       url: request.url,
       description,

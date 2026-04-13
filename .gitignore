@@ -19,3 +19,4 @@ integrations/
 models/
 /index.ts
 *.png
+reports/

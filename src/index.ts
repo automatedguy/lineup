@@ -10,6 +10,7 @@ export { WebExplorer } from './agents/web-explorer.js';
 export { WebDescriber } from './agents/web-describer.js';
 export { WebPlanner } from './agents/web-planner.js';
 export { WebExecutor } from './agents/web-executor.js';
+export { Reporter } from './agents/reporter.js';
 
 export type { Agent } from './types/agent.js';
 export type { ExplorationPlan } from './types/exploration-plan.js';
@@ -17,3 +18,4 @@ export type { DescriptionRequest } from './types/description-request.js';
 export type { PageDescription } from './types/page-description.js';
 export type { TestStep, TestScenario, TestPlan } from './types/test-plan.js';
 export type { StepResult, ScenarioResult, TestLog } from './types/test-log.js';
+export type { TestReport } from './types/test-report.js';
