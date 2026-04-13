@@ -13,6 +13,13 @@ export class WebExplorer implements Agent<ExplorationPlan, DescriptionRequest> {
 
   async run(plan: ExplorationPlan): Promise<DescriptionRequest> {
     console.log(`[${this.name}] Navigating to ${plan.url}`);
+
+
+    // log the exploration plan
+    console.log('\n--- ExplorationPlan ---');
+    console.log(`URL: ${plan.url}`);
+    console.log(`Actions: ${plan.actions?.length || 0}`);
+
     await this.navigator.navigate(plan.url);
 
     if (plan.actions) {

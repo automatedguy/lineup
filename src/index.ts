@@ -12,6 +12,9 @@ export { WebPlanner } from './agents/web-planner.js';
 export { WebExecutor } from './agents/web-executor.js';
 export { Reporter } from './agents/reporter.js';
 
+export { Orchestrator } from './orchestrator.js';
+export type { OrchestratorConfig } from './orchestrator.js';
+
 export type { Agent } from './types/agent.js';
 export type { ExplorationPlan } from './types/exploration-plan.js';
 export type { DescriptionRequest } from './types/description-request.js';
