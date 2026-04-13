@@ -86,6 +86,33 @@ export class WebNavigator {
     });
   }
 
+  async waitForPageLoad(): Promise<void> {
+    return this.withBrowserGuard(() =>
+      this.getPage().waitForLoadState('domcontentloaded'),
+    );
+  }
+
+  async waitForElementVisible(text: string, timeout = 10000): Promise<void> {
+    await this.withBrowserGuard(async () => {
+      await this.getPage().waitForSelector(`text="${text}"`, {
+        state: 'visible',
+        timeout,
+      });
+    });
+  }
+
+  async waitForElementNotVisible(
+    text: string,
+    timeout = 10000,
+  ): Promise<void> {
+    await this.withBrowserGuard(async () => {
+      await this.getPage().waitForSelector(`text="${text}"`, {
+        state: 'hidden',
+        timeout,
+      });
+    });
+  }
+
   async screenshot(): Promise<Buffer> {
     return this.withBrowserGuard(() =>
       this.getPage().screenshot({ type: 'png', fullPage: false }),

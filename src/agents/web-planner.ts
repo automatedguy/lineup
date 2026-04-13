@@ -6,17 +6,33 @@ import type { OllamaClient } from '../services/ollama-client.js';
 const SYSTEM_PROMPT = `You are a senior QA test engineer. Given a detailed description of a web page, generate test scenarios.
 
 Each scenario has a name and a list of steps. Each step has a type and an instruction:
-- type "action": a browser action (click, type, scroll, select). Must be a natural language instruction that a browser automation tool can execute.
-- type "assertion": a verification that checks expected state (element visible, text content, page title). Use natural language describing what to verify.
+- type "action": a browser action (click, type, scroll, select). Must be a natural language instruction that a browser automation tool can execute. Do NOT use "leave empty" or "do nothing" as actions — if a field should be empty, skip it.
+- type "assertion": a verification that checks expected state.
+
+CRITICAL ASSERTION RULES:
+1. Assertion instructions MUST contain the exact expected text in double quotes.
+2. You may ONLY use text that appears in the page description provided to you. NEVER invent, guess, or assume text that is not explicitly mentioned in the description.
+3. If the page description does not mention specific error messages, validation text, or UI text — do NOT create assertions for them. Only assert what you can verify from the description.
+4. For assertions about state changes (selected, redirected, visual style), omit the quotes and describe what to check — these will be evaluated by a fallback mechanism.
+
+GOOD assertions (text from the description):
+- Verify "Click Me" is displayed
+- Verify "A paragraph of text" is visible on the page
+- Verify "Basic Web Page" is displayed in the heading
+
+BAD assertions (invented text NOT in the description):
+- Verify "Please enter a valid email" is displayed (made up error message)
+- Verify "ZIP code must be numeric." is displayed (guessed validation text)
+- Verify "Loading..." is visible (assumed loading text)
 
 Respond ONLY with a JSON array of scenarios. No markdown, no explanation, no code fences. Example:
 
 [
   {
-    "name": "Login form validation",
+    "name": "Button interaction",
     "steps": [
-      { "type": "action", "instruction": "Click the Submit button without filling any fields" },
-      { "type": "assertion", "instruction": "Verify an error message is displayed saying 'Email is required'" }
+      { "type": "action", "instruction": "Click the Submit button" },
+      { "type": "assertion", "instruction": "Verify \\"Form submitted successfully\\" is displayed" }
     ]
   }
 ]`;
