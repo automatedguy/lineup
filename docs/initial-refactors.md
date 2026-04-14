@@ -56,6 +56,8 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **15. Orchestrator design (LINEUP-13)** — The Orchestrator is not an agent — it is plain TypeScript code that wires the 5-agent deterministic pipeline. It owns the WebNavigator lifecycle (init/close), instantiates all agents with the shared WebNavigator via DI, and chains their outputs sequentially: `ExplorationPlan → WebExplorer → DescriptionRequest → WebDescriber → PageDescription → WebPlanner → TestPlan → WebExecutor → TestLog → Reporter → TestReport`. Blocked by LINEUP-7, 8, 9, 10.
 
+**16. Review coding standards (LINEUP-15)** — Review and establish coding standards across the codebase. Task priority: Medium.
+
 ---
 
 ## Summary
