@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Lineup is a multi-agent UI testing automation desktop application (initially targeting Mac) that autonomously discovers bugs in web applications. It will be commercialized and marketed via LinkedIn.
 
-**v1.0 scope:** Four agents + one shared service with a deterministic pipeline: `navigate → describe → plan → execute → report`.
+**v1.0 scope:** Five agents + one shared service with a deterministic pipeline: `explore → describe → plan → execute → report`.
 
 **Product differentiator:** Zero selectors end-to-end. Vision in, natural language plan out, natural language execution. A manual tester LOOKS at the page, not at the DOM — Lineup does the same.
 
@@ -37,15 +37,19 @@ Lineup is a multi-agent UI testing automation desktop application (initially tar
 ## Architecture
 
 ```
-v1.0: 4 Agents + 1 Service, Deterministic Pipeline
+v1.0: 5 Agents + 1 Service, Deterministic Pipeline
 
-                ┌──────────────┐
-                │ WebNavigator │  (service — browser access)
-                └──────┬───────┘
-                       │ sole consumer
-                       ▼
-                  WebExecutor ──▶ WebDescriber ──▶ WebPlanner ──▶ WebExecutor ──▶ Reporter
-                    (hands)        (eyes)          (brain)        (hands)        (writer)
+                  ┌──────────────┐
+                  │ WebNavigator │  (service — browser access)
+                  └──────┬───────┘
+                         │ consumed by
+            ┌────────────┼────────────┐
+            ▼            ▼            ▼
+       WebExplorer  WebDescriber  WebExecutor
+         (feet)       (eyes)       (hands)
+            │            │            ▲
+            └──▶ describe ──▶ plan ──▶┘──▶ Reporter
+                                           (writer)
 ```
 
 ### Agent Interface Pattern (pipeline agents)
@@ -56,24 +60,26 @@ interface Agent<TInput, TOutput> {
 }
 ```
 
-WebNavigator is a **shared service** (not an agent) — injected exclusively into WebExecutor via dependency injection. No other agent interacts with WebNavigator directly.
+WebNavigator is a **shared service** (not an agent) — injected into agents that need browser access (WebExplorer, WebDescriber, WebExecutor) via dependency injection. Agents that consume WebNavigator extend `BaseAgent`, which standardizes the injection, logging, timing, and error handling.
 
 ### Agents
 
 | Agent | Role | Responsibility | Uses | Does NOT do | Output |
 |-------|------|----------------|------|-------------|--------|
 | **WebNavigator** | Service | Stagehand wrapper — navigate, screenshot, DOM capture, network capture, act, extract, observe | Stagehand v3.2 (all APIs), Groq free tier | Planning, analysis, reporting | `PageScreenshot` and raw browser data |
-| **WebDescriber** | Eyes | Receive a screenshot, produce a detailed visual description from a UI tester's perspective | Qwen3-VL:8b (local Ollama) | Planning, navigation, test execution | `PageDescription` |
+| **WebExplorer** | Feet | Navigate to URL and execute pre-navigation actions (login flows, cookie dismissal) | WebNavigator (`navigate`, `act`) | Description, planning, reporting | `DescriptionRequest` |
+| **WebDescriber** | Eyes | Take a screenshot and produce a detailed visual description from a UI tester's perspective | WebNavigator (`screenshot`), Qwen3-VL:8b (local Ollama) | Planning, navigation actions, test execution | `PageDescription` |
 | **WebPlanner** | Brain | Think like a QA tester — generate test scenarios from visual description | qwen3:8b (local Ollama) | Browser interaction | `TestPlan` |
-| **WebExecutor** | Hands | **Sole gateway to WebNavigator** — execute test scenarios step by step, capture screenshots, and provide browser data to other agents | WebNavigator (all APIs) | Planning, page analysis | `TestLog` |
+| **WebExecutor** | Hands | Execute test scenarios step by step, capture screenshots, verify assertions | WebNavigator (`navigate`, `act`, `screenshot`, `extract`, `waitForElementVisible`) | Planning, page analysis | `TestLog` |
 | **Reporter** | Writer | Generate self-contained HTML report with embedded screenshots, metrics, severity | Template engine (plain code, no LLM) | Browser interaction, planning | `TestReport` |
 
 ### Separation of Concerns
 
-- **WebNavigator** is a shared service (not an agent) — consumed **exclusively** by WebExecutor. No other agent interacts with WebNavigator directly.
-- **WebExecutor** is the **sole gateway** to the browser — all browser interaction (screenshots, navigation, actions, extraction) flows through WebExecutor. It captures screenshots and passes them to WebDescriber; it executes actions from test plans.
-- **WebDescriber** only sees and describes — receives a screenshot (provided by WebExecutor), produces a `PageDescription`
-- **WebPlanner** only thinks and plans — receives `PageDescription`, outputs `TestPlan`
+- **WebNavigator** is a shared service (not an agent) — consumed by agents that need browser access (`WebExplorer`, `WebDescriber`, `WebExecutor`). These agents extend `BaseAgent` which standardizes WebNavigator injection.
+- **WebExplorer** only navigates — goes to a URL and executes pre-navigation actions, then hands off to WebDescriber
+- **WebDescriber** only sees and describes — takes a screenshot via WebNavigator and produces a `PageDescription`
+- **WebPlanner** only thinks and plans — receives `PageDescription`, outputs `TestPlan`. Does not use WebNavigator.
+- **WebExecutor** executes test plans — navigates, acts, captures screenshots, and verifies assertions via WebNavigator
 - **Reporter** only summarizes — plain code, no LLM, no browser interaction
 
 ### Key Data Models
@@ -107,7 +113,7 @@ WebNavigator wraps Stagehand v3.2 and exposes all browser capabilities as a unif
 - **Session/auth:** Shared browser context persists cookies; cookie injection layer planned for authenticated flows
 - **Reports must be self-contained:** Embedded base64 images, inline CSS, works offline
 - **Pin Stagehand version** and abstract behind WebNavigator to guard against breaking changes
-- **WebExecutor is the sole gateway to WebNavigator** — no agent besides WebExecutor may call WebNavigator APIs directly. This keeps all browser interaction centralized and auditable.
+- **WebNavigator access via BaseAgent** — agents that need browser access (`WebExplorer`, `WebDescriber`, `WebExecutor`) extend `BaseAgent`, which standardizes WebNavigator injection, logging, timing, and browser error handling. Agents that don't need browser access (`WebPlanner`, `Reporter`) implement the `Agent` interface directly.
 
 ## Integrations
 
