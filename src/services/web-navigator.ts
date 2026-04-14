@@ -173,7 +173,7 @@ export class WebNavigator {
 
   private getPage() {
     const stagehand = this.getStagehand();
-    const page = stagehand.context.pages()[0];
+    const page = stagehand.context.activePage();
     if (!page) {
       throw new Error('No page available in browser context.');
     }
