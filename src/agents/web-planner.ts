@@ -81,15 +81,19 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   }
 
   private parseScenarios(response: string): TestScenario[] {
-    const jsonMatch = response.match(/\[[\s\S]*\]/);
+    // Strip <think>...</think> blocks emitted by qwen3 before the actual JSON
+    const stripped = response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
+
+    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
     if (!jsonMatch) {
       throw new Error(
         `WebPlanner: failed to parse scenarios from model response:\n${response}`,
       );
     }
 
-    // Clean up common LLM JSON issues: trailing commas, comments
+    // Clean up common LLM JSON issues: trailing commas, comments, control chars
     const cleaned = jsonMatch[0]
+      .replace(/[\x00-\x1f\x7f]/g, (ch) => (ch === '\n' || ch === '\r' || ch === '\t' ? ch : '')) // strip control chars
       .replace(/,\s*([}\]])/g, '$1') // trailing commas
       .replace(/\/\/.*$/gm, '')       // line comments
       .replace(/\/\*[\s\S]*?\*\//g, ''); // block comments

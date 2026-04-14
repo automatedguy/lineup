@@ -1,3 +1,5 @@
+import { Agent } from 'undici';
+
 export interface OllamaMessage {
   role: 'system' | 'user' | 'assistant';
   content: string;
@@ -19,21 +21,28 @@ export interface OllamaClientConfig {
 export class OllamaClient {
   private readonly baseUrl: string;
   private readonly timeoutMs: number;
+  private readonly dispatcher: Agent;
 
   constructor(config: OllamaClientConfig = {}) {
     this.baseUrl =
       config.baseUrl ??
       process.env.OLLAMA_BASE_URL ??
       'http://localhost:11434';
-    this.timeoutMs = config.timeoutMs ?? 300_000; // 5 minutes — vision models need time to load
+    this.timeoutMs = config.timeoutMs ?? 600_000; // 10 minutes — vision models need time to load on cold start
+    this.dispatcher = new Agent({
+      headersTimeout: this.timeoutMs,
+      bodyTimeout: this.timeoutMs,
+    });
   }
 
   async chat(model: string, messages: OllamaMessage[]): Promise<string> {
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: false }),
+      body: JSON.stringify({ model, messages, stream: false, think: false }),
       signal: AbortSignal.timeout(this.timeoutMs),
+      // @ts-expect-error -- dispatcher is a valid undici option for Node's fetch
+      dispatcher: this.dispatcher,
     });
 
     if (!response.ok) {
