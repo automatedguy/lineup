@@ -54,6 +54,8 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **14. Design change** - WebDescriber will be in charge of requesting screenshots to WebNavigator service. WebDescriber will receive a "Description request", perform a take screenshot call via WebNavigator Service, receive the screenshot and then perform visual description using the perspective of a senior web application tester documenting a page for scripting test scenarios.
 
+## Refactors:
+
 **15. Orchestrator design (LINEUP-13)** — The Orchestrator is not an agent — it is plain TypeScript code that wires the 5-agent deterministic pipeline. It owns the WebNavigator lifecycle (init/close), instantiates all agents with the shared WebNavigator via DI, and chains their outputs sequentially: `ExplorationPlan → WebExplorer → DescriptionRequest → WebDescriber → PageDescription → WebPlanner → TestPlan → WebExecutor → TestLog → Reporter → TestReport`. Blocked by LINEUP-7, 8, 9, 10.
 
 **16. Review coding standards (LINEUP-15)** — Review and establish coding standards across the codebase. Task priority: Medium.
