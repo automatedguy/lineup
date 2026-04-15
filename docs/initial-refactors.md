@@ -60,6 +60,8 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **16. Review coding standards (LINEUP-15)** — Review and establish coding standards across the codebase. Task priority: Medium.
 
+**17. Implement BaseAgent pattern (LINEUP-16)** — Extract a `BaseAgent<TInput, TOutput>` abstract class for agents that consume WebNavigator (`WebExplorer`, `WebDescriber`, `WebExecutor`). BaseAgent standardizes WebNavigator injection via `protected readonly navigator`, structured logging via `this.log()`, automatic timing in a template-method `run()`, and browser error handling. Subclasses implement `protected abstract execute(input: TInput): Promise<TOutput>`. Agents that don't need WebNavigator (`WebPlanner`, `Reporter`) continue to implement `Agent<TInput, TOutput>` directly. WebDescriber's constructor calls `super(navigator)` and adds `OllamaClient` as its own dependency.
+
 ---
 
 ## Summary
