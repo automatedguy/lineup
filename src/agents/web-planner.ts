@@ -92,22 +92,11 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
     const scenarios = this.parseScenarios(response);
     console.log(`[${this.name}] Generated ${scenarios.length} scenarios`);
 
-    const testPlan: TestPlan = {
+    return {
       url: pageDescription.url,
       scenarios,
       pageDescription: pageDescription.description,
     };
-
-    console.log('\n--- TestPlan ---');
-    console.log(`URL: ${testPlan.url}`);
-    for (const scenario of testPlan.scenarios) {
-      console.log(`\n  Scenario: ${scenario.name}`);
-      for (const step of scenario.steps) {
-        console.log(`    [${step.type}] ${step.instruction}`);
-      }
-    }
-
-    return testPlan;
   }
 
   private parseScenarios(response: string): TestScenario[] {

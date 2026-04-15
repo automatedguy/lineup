@@ -36,36 +36,39 @@ export class Orchestrator {
   async run(explorationPlan: ExplorationPlan): Promise<TestReport> {
     await this.navigator.init();
     try {
-      console.log('[Orchestrator] Starting pipeline...');
+      this.log('Starting pipeline...');
 
-      console.log('[Orchestrator] Running WebExplorer...');
       const descriptionRequest = await this.explorer.run(explorationPlan);
+      this.log(`ExplorationPlan: ${descriptionRequest.url}`);
 
-      console.log('[Orchestrator] Running WebDescriber...');
       const pageDescription = await this.describer.run(descriptionRequest);
+      this.log(`PageDescription: ${pageDescription.url} (${pageDescription.description.length} chars)`);
+      this.log(`Description:\n${pageDescription.description}`);
 
-      console.log('[Orchestrator] Running WebPlanner...');
       const testPlan = await this.planner.run(pageDescription);
+      this.log(`TestPlan: ${testPlan.scenarios.length} scenarios`);
+      for (const scenario of testPlan.scenarios) {
+        this.log(`  Scenario: ${scenario.name} (${scenario.steps.length} steps)`);
+        for (const step of scenario.steps) {
+          this.log(`    [${step.type}] ${step.instruction}`);
+        }
+      }
 
-      console.log(
-        `[Orchestrator] TestPlan: ${testPlan.scenarios.length} scenarios`,
-      );
-
-      console.log('[Orchestrator] Running WebExecutor...');
       const testLog = await this.executor.run(testPlan);
+      this.log(`TestLog: ${testLog.summary.passed}/${testLog.summary.total} passed, ${testLog.summary.failed} failed (${testLog.summary.durationMs}ms)`);
 
-      console.log(
-        `[Orchestrator] Execution complete: ${testLog.summary.passed}/${testLog.summary.total} passed`,
-      );
-
-      console.log('[Orchestrator] Running Reporter...');
       const report = await this.reporter.run(testLog);
+      this.log(`Report: ${report.html.length} chars`);
 
-      console.log('[Orchestrator] Pipeline complete.');
+      this.log('Pipeline complete.');
       return report;
     } finally {
       await this.navigator.close();
     }
+  }
+
+  private log(message: string): void {
+    console.log(`[Orchestrator] ${message}`);
   }
 
   async close(): Promise<void> {
