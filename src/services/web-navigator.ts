@@ -115,7 +115,7 @@ export class WebNavigator {
 
   async screenshot(): Promise<Buffer> {
     return this.withBrowserGuard(() =>
-      this.getPage().screenshot({ type: 'png', fullPage: false }),
+      this.getPage().screenshot({ type: 'png', fullPage: false, scale: 'css' }),
     );
   }
 

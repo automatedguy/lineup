@@ -1,35 +1,32 @@
 import { z } from 'zod';
-import type { Agent } from '../types/agent.js';
 import type { TestPlan, TestStep } from '../types/test-plan.js';
 import type { TestLog, StepResult, ScenarioResult } from '../types/test-log.js';
 import type { WebNavigator } from '../services/web-navigator.js';
+import { BaseAgent } from './base-agent.js';
 
 const assertionSchema = z.object({
   pass: z.boolean(),
   reason: z.string(),
 });
 
-export class WebExecutor implements Agent<TestPlan, TestLog> {
+export class WebExecutor extends BaseAgent<TestPlan, TestLog> {
   readonly name = 'WebExecutor';
-  private readonly navigator: WebNavigator;
 
   constructor(navigator: WebNavigator) {
-    this.navigator = navigator;
+    super(navigator);
   }
 
-  async run(plan: TestPlan): Promise<TestLog> {
+  protected async execute(plan: TestPlan): Promise<TestLog> {
     const startTime = Date.now();
     const scenarioResults: ScenarioResult[] = [];
 
-    console.log(
-      `[${this.name}] Executing ${plan.scenarios.length} scenarios on ${plan.url}`,
-    );
+    this.log(`Executing ${plan.scenarios.length} scenarios on ${plan.url}`);
 
     for (const scenario of plan.scenarios) {
-      console.log(`[${this.name}] Navigating to ${plan.url}`);
+      this.log(`Navigating to ${plan.url}`);
       await this.navigator.navigate(plan.url);
 
-      console.log(`[${this.name}] Scenario: ${scenario.name}`);
+      this.log(`Scenario: ${scenario.name}`);
       const stepResults: StepResult[] = [];
       let scenarioFailed = false;
 
@@ -38,11 +35,11 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
         stepResults.push(result);
 
         const icon = result.status === 'pass' ? '\u2713' : '\u2717';
-        console.log(
-          `[${this.name}]   ${icon} [${step.type}] ${step.instruction} (${result.durationMs}ms)`,
+        this.log(
+          `  ${icon} [${step.type}] ${step.instruction} (${result.durationMs}ms)`,
         );
         if (result.status === 'fail') {
-          console.log(`[${this.name}]     Error: ${result.error}`);
+          this.log(`    Error: ${result.error}`);
           scenarioFailed = true;
           break;
         }
@@ -66,9 +63,7 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
     const passed = scenarioResults.filter((s) => s.status === 'pass').length;
     const failed = scenarioResults.filter((s) => s.status === 'fail').length;
 
-    console.log(
-      `[${this.name}] Complete: ${passed} passed, ${failed} failed`,
-    );
+    this.log(`${passed} passed, ${failed} failed`);
 
     return {
       url: plan.url,
@@ -114,7 +109,7 @@ export class WebExecutor implements Agent<TestPlan, TestLog> {
     }
 
     // Fallback: use extract() to ask the LLM to evaluate the assertion
-    console.log(`[${this.name}]     (fallback: using extract for assertion)`);
+    this.log('    (fallback: using extract for assertion)');
     const result = await this.navigator.extract(
       `Look at the current page and evaluate this assertion: "${instruction}". Is it true or false? Provide a brief reason.`,
       assertionSchema,
