@@ -28,7 +28,7 @@ export class OllamaClient {
       config.baseUrl ??
       process.env.OLLAMA_BASE_URL ??
       'http://localhost:11434';
-    this.timeoutMs = config.timeoutMs ?? 600_000; // 10 minutes — vision models need time to load on cold start
+    this.timeoutMs = config.timeoutMs ?? 900_000; // 15 minutes — vision models are slow on local hardware
     this.dispatcher = new Agent({
       headersTimeout: this.timeoutMs,
       bodyTimeout: this.timeoutMs,
