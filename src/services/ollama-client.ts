@@ -35,11 +35,15 @@ export class OllamaClient {
     });
   }
 
-  async chat(model: string, messages: OllamaMessage[]): Promise<string> {
+  async chat(
+    model: string,
+    messages: OllamaMessage[],
+    format?: Record<string, unknown>,
+  ): Promise<string> {
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: false, think: false }),
+      body: JSON.stringify({ model, messages, stream: false, think: false, ...(format && { format }) }),
       signal: AbortSignal.timeout(this.timeoutMs),
       // @ts-expect-error -- dispatcher is a valid undici option for Node's fetch
       dispatcher: this.dispatcher,
