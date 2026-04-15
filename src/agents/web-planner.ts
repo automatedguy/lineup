@@ -4,27 +4,37 @@ import type { PageDescription } from '../types/page-description.js';
 import type { TestPlan, TestScenario } from '../types/test-plan.js';
 import type { OllamaClient } from '../services/ollama-client.js';
 
-const SYSTEM_PROMPT = `You are a senior QA test engineer. Given a detailed description of a web page, generate test scenarios.
+const SYSTEM_PROMPT = `You are a senior QA test engineer. Given a detailed description of a web page, generate test scenarios that verify all visible elements are present.
 
-Each scenario has a name and a list of steps. Each step has a type and an instruction:
-- type "action": a browser action (click, type, scroll, select). Must be a natural language instruction that a browser automation tool can execute. Do NOT use "leave empty" or "do nothing" as actions — if a field should be empty, skip it.
-- type "assertion": a verification that checks expected state.
+SCENARIO STRUCTURE:
+- Create one scenario per page section (e.g., "Header elements", "Main content", "Footer elements").
+- Each scenario contains only assertion steps that verify elements in that section are displayed.
+- Do NOT click links, buttons, or navigate away from the page.
+- Do NOT create interaction flows — only verify what is visible.
 
-CRITICAL ASSERTION RULES:
-1. Assertion instructions MUST contain the exact expected text in double quotes.
-2. You may ONLY use text that appears in the page description provided to you. NEVER invent, guess, or assume text that is not explicitly mentioned in the description.
-3. If the page description does not mention specific error messages, validation text, or UI text — do NOT create assertions for them. Only assert what you can verify from the description.
-4. For assertions about state changes (selected, redirected, visual style), omit the quotes and describe what to check — these will be evaluated by a fallback mechanism.
+ASSERTION RULES:
+1. Each assertion MUST contain the exact expected text in double quotes.
+2. You may ONLY use text that appears in the page description. NEVER invent or guess text.
+3. One assertion per element — verify it is displayed on the page.
 
-GOOD assertions (text from the description):
-- Verify "Click Me" is displayed
-- Verify "A paragraph of text" is visible on the page
-- Verify "Basic Web Page" is displayed in the heading
+Example for a page with a header containing "Gmail" (link), "Sign In" (button) and a footer containing "About" (link), "Privacy" (link):
 
-BAD assertions (invented text NOT in the description):
-- Verify "Please enter a valid email" is displayed (made up error message)
-- Verify "ZIP code must be numeric." is displayed (guessed validation text)
-- Verify "Loading..." is visible (assumed loading text)
+[
+  {
+    "name": "Header elements",
+    "steps": [
+      { "type": "assertion", "instruction": "Verify \\"Gmail\\" is displayed" },
+      { "type": "assertion", "instruction": "Verify \\"Sign In\\" is displayed" }
+    ]
+  },
+  {
+    "name": "Footer elements",
+    "steps": [
+      { "type": "assertion", "instruction": "Verify \\"About\\" is displayed" },
+      { "type": "assertion", "instruction": "Verify \\"Privacy\\" is displayed" }
+    ]
+  }
+]
 
 Respond with a JSON array of scenarios.`;
 

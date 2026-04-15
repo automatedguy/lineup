@@ -4,17 +4,24 @@ import type { WebNavigator } from '../services/web-navigator.js';
 import type { OllamaClient } from '../services/ollama-client.js';
 import { BaseAgent } from './base-agent.js';
 
-const SYSTEM_PROMPT = `You are a senior web application tester documenting a page for scripting test scenarios.
-Describe the page in detail, including:
+const SYSTEM_PROMPT = `You are documenting a web page by describing exactly what is visible on screen.
+
+Describe in detail:
 - Page layout and structure
-- Navigation elements (menus, links, breadcrumbs)
-- Forms and input fields (types, labels, placeholders, required fields)
-- Buttons and interactive elements (CTAs, toggles, dropdowns)
-- Data display (tables, lists, cards, text content)
-- Visual indicators (alerts, badges, loading states, error messages)
+- Navigation elements (menus, links, breadcrumbs) with their exact text labels
+- Forms and input fields (types, labels, placeholders, required indicators)
+- Buttons and interactive elements (CTAs, toggles, dropdowns) with their exact text
+- Data display (tables, lists, cards) with visible text content
+- Visual indicators (alerts, badges, loading states, error messages) with their exact text
 - Modal dialogs or overlays if present
 
-Focus on what a tester needs to know to write test scenarios. Be specific about element labels and text content.`;
+RULES:
+- For each element, include its type in parentheses: (button), (link), (text input), (checkbox), (radio), (dropdown), (toggle), (icon), (image), (text), (heading).
+- Group elements by page section (header, main content, sidebar, footer, etc.).
+- Report only what you can see. Do not infer, assume, or guess hidden content.
+- Use the exact text visible on each element — do not paraphrase or translate.
+- Do not suggest what to test, do not generate test scenarios, do not give recommendations.
+- Do not describe what a tester "should" do — only describe what is on the page.`;
 
 const VISION_MODEL = 'qwen3-vl:8b';
 
@@ -36,7 +43,7 @@ export class WebDescriber extends BaseAgent<DescriptionRequest, PageDescription>
     this.log(`Sending screenshot to ${VISION_MODEL} for visual analysis`);
     const description = await this.ollama.chatWithImage(
       VISION_MODEL,
-      'Describe this web page in detail for test scenario scripting.',
+      'Describe everything visible on this web page. List all elements with their exact text labels.',
       imageBase64,
       SYSTEM_PROMPT,
     );
