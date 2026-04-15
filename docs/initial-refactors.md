@@ -18,7 +18,7 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **2. ~~Stale reference after browser crash~~** (FIXED 2026-04-11) — If the Chromium process dies unexpectedly (OOM, kill, etc.), `this.stagehand` remains non-null. All subsequent calls throw from Stagehand internals with cryptic errors, and `init()` silently returns thinking everything is fine. **Fix:** `close()` uses try/finally to always reset state; `withBrowserGuard()` wraps all public methods to detect browser death, reset state, and throw a clear error so `init()` can restart.
 
-**3. `getPage()` always takes index `[0]`** — If an `act()` instruction opens a new tab or popup, the relevant page moves to a different index. `pages()[0]` still returns the original (now-stale) page, so subsequent actions operate on the wrong page.
+**3. ~~`getPage()` always takes index `[0]`~~** (FIXED 2026-04-14) — If an `act()` instruction opens a new tab or popup, the relevant page moves to a different index. `pages()[0]` still returns the original (now-stale) page, so subsequent actions operate on the wrong page. **Fix:** replaced `stagehand.context.pages()[0]` with `stagehand.context.activePage()`, which returns the most-recently active page.
 
 ---
 
@@ -54,7 +54,11 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **14. Design change** - WebDescriber will be in charge of requesting screenshots to WebNavigator service. WebDescriber will receive a "Description request", perform a take screenshot call via WebNavigator Service, receive the screenshot and then perform visual description using the perspective of a senior web application tester documenting a page for scripting test scenarios.
 
+## Refactors:
+
 **15. Orchestrator design (LINEUP-13)** — The Orchestrator is not an agent — it is plain TypeScript code that wires the 5-agent deterministic pipeline. It owns the WebNavigator lifecycle (init/close), instantiates all agents with the shared WebNavigator via DI, and chains their outputs sequentially: `ExplorationPlan → WebExplorer → DescriptionRequest → WebDescriber → PageDescription → WebPlanner → TestPlan → WebExecutor → TestLog → Reporter → TestReport`. Blocked by LINEUP-7, 8, 9, 10.
+
+**16. Review coding standards (LINEUP-15)** — Review and establish coding standards across the codebase. Task priority: Medium.
 
 ---
 

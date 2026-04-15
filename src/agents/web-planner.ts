@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import type { Agent } from '../types/agent.js';
 import type { PageDescription } from '../types/page-description.js';
 import type { TestPlan, TestScenario } from '../types/test-plan.js';
@@ -25,19 +26,44 @@ BAD assertions (invented text NOT in the description):
 - Verify "ZIP code must be numeric." is displayed (guessed validation text)
 - Verify "Loading..." is visible (assumed loading text)
 
-Respond ONLY with a JSON array of scenarios. No markdown, no explanation, no code fences. Example:
-
-[
-  {
-    "name": "Button interaction",
-    "steps": [
-      { "type": "action", "instruction": "Click the Submit button" },
-      { "type": "assertion", "instruction": "Verify \\"Form submitted successfully\\" is displayed" }
-    ]
-  }
-]`;
+Respond with a JSON array of scenarios.`;
 
 const TEXT_MODEL = 'qwen3:8b';
+
+const testStepSchema = z.object({
+  type: z.enum(['action', 'assertion']),
+  instruction: z.string().min(1),
+});
+
+const testScenarioSchema = z.object({
+  name: z.string().min(1),
+  steps: z.array(testStepSchema).min(1),
+});
+
+const scenariosSchema = z.array(testScenarioSchema).min(1);
+
+// JSON schema passed to Ollama's format parameter to constrain output
+const SCENARIOS_FORMAT = {
+  type: 'array',
+  items: {
+    type: 'object',
+    required: ['name', 'steps'],
+    properties: {
+      name: { type: 'string' },
+      steps: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['type', 'instruction'],
+          properties: {
+            type: { type: 'string', enum: ['action', 'assertion'] },
+            instruction: { type: 'string' },
+          },
+        },
+      },
+    },
+  },
+};
 
 export class WebPlanner implements Agent<PageDescription, TestPlan> {
   readonly name = 'WebPlanner';
@@ -50,13 +76,17 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   async run(pageDescription: PageDescription): Promise<TestPlan> {
     console.log(`[${this.name}] Generating test plan for ${pageDescription.url}`);
 
-    const response = await this.ollama.chat(TEXT_MODEL, [
-      { role: 'system', content: SYSTEM_PROMPT },
-      {
-        role: 'user',
-        content: `Generate test scenarios for this page:\n\n${pageDescription.description}`,
-      },
-    ]);
+    const response = await this.ollama.chat(
+      TEXT_MODEL,
+      [
+        { role: 'system', content: SYSTEM_PROMPT },
+        {
+          role: 'user',
+          content: `Generate test scenarios for this page:\n\n${pageDescription.description}`,
+        },
+      ],
+      SCENARIOS_FORMAT,
+    );
 
     console.log(`[${this.name}] Parsing test scenarios`);
     const scenarios = this.parseScenarios(response);
@@ -81,31 +111,7 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   }
 
   private parseScenarios(response: string): TestScenario[] {
-    // Strip <think>...</think> blocks emitted by qwen3 before the actual JSON
-    const stripped = response.replace(/<think>[\s\S]*?<\/think>/g, '').trim();
-
-    const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      throw new Error(
-        `WebPlanner: failed to parse scenarios from model response:\n${response}`,
-      );
-    }
-
-    // Clean up common LLM JSON issues: trailing commas, comments, control chars
-    const cleaned = jsonMatch[0]
-      .replace(/[\x00-\x1f\x7f]/g, (ch) => (ch === '\n' || ch === '\r' || ch === '\t' ? ch : '')) // strip control chars
-      .replace(/,\s*([}\]])/g, '$1') // trailing commas
-      .replace(/\/\/.*$/gm, '')       // line comments
-      .replace(/\/\*[\s\S]*?\*\//g, ''); // block comments
-
-    const parsed = JSON.parse(cleaned) as TestScenario[];
-
-    return parsed.map((scenario) => ({
-      name: scenario.name,
-      steps: scenario.steps.map((step) => ({
-        type: step.type === 'assertion' ? 'assertion' : 'action',
-        instruction: step.instruction,
-      })),
-    }));
+    const parsed = JSON.parse(response);
+    return scenariosSchema.parse(parsed);
   }
 }
