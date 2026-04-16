@@ -1,29 +1,58 @@
 import type { DescriptionRequest } from '../types/description-request.js';
-import type { PageDescription } from '../types/page-description.js';
+import type { PageDescription, PageElementMap } from '../types/page-description.js';
 import type { WebNavigator } from '../services/web-navigator.js';
 import type { OllamaClient } from '../services/ollama-client.js';
 import { BaseAgent } from './base-agent.js';
 
-const SYSTEM_PROMPT = `You are documenting a web page by describing exactly what is visible on screen.
+const SYSTEM_PROMPT = `You are documenting a web page by listing every visible element as structured JSON.
 
-Describe in detail:
-- Page layout and structure
-- Navigation elements (menus, links, breadcrumbs) with their exact text labels
-- Forms and input fields (types, labels, placeholders, required indicators)
-- Buttons and interactive elements (CTAs, toggles, dropdowns) with their exact text
-- Data display (tables, lists, cards) with visible text content
-- Visual indicators (alerts, badges, loading states, error messages) with their exact text
-- Modal dialogs or overlays if present
+Return a JSON array of page sections. Each section has a name and a list of elements.
+Each element has:
+- "description": the exact visible text label, or a short description for non-text elements (e.g., "Search by voice icon")
+- "type": one of: link, button, text input, checkbox, radio, dropdown, toggle, icon, image, text, heading
+- "method": the allowed interaction — one of: click, fill, type, press, scroll, select from dropdown, assert-visible
+
+Method rules (from Stagehand suggested actions):
+- link, button, icon, image, checkbox, radio, toggle → "click"
+- text input → "fill" (set a field's value)
+- dropdown → "select from dropdown"
+- scrollable area → "scroll"
+- keyboard shortcut target → "press" (press a key like Enter, Tab, Escape)
+- text, heading → "assert-visible" (non-actionable, can only be verified as present)
 
 RULES:
-- For each element, include its type in parentheses: (button), (link), (text input), (checkbox), (radio), (dropdown), (toggle), (icon), (image), (text), (heading).
 - Group elements by page section (header, main content, sidebar, footer, etc.).
+- Within each section, list elements in the order they appear on screen: top-to-bottom, left-to-right.
+- Do NOT move elements between sections. An element belongs to the section where it visually appears on the page.
 - Report only what you can see. Do not infer, assume, or guess hidden content.
 - Use the exact text visible on each element — do not paraphrase or translate.
-- Do not suggest what to test, do not generate test scenarios, do not give recommendations.
-- Do not describe what a tester "should" do — only describe what is on the page.`;
+- Include ALL elements: actionable (links, buttons, inputs) AND non-actionable (text, headings).
+- Do NOT skip elements. Every visible link, button, icon, text, and input must be listed.`;
 
 const VISION_MODEL = 'qwen3-vl:8b';
+
+const ELEMENT_MAP_FORMAT = {
+  type: 'array',
+  items: {
+    type: 'object',
+    required: ['section', 'elements'],
+    properties: {
+      section: { type: 'string' },
+      elements: {
+        type: 'array',
+        items: {
+          type: 'object',
+          required: ['description', 'type', 'method'],
+          properties: {
+            description: { type: 'string' },
+            type: { type: 'string' },
+            method: { type: 'string', enum: ['click', 'fill', 'type', 'press', 'scroll', 'select from dropdown', 'assert-visible'] },
+          },
+        },
+      },
+    },
+  },
+};
 
 export class WebDescriber extends BaseAgent<DescriptionRequest, PageDescription> {
   readonly name = 'WebDescriber';
@@ -41,18 +70,21 @@ export class WebDescriber extends BaseAgent<DescriptionRequest, PageDescription>
     const imageBase64 = screenshot.toString('base64');
 
     this.log(`Sending screenshot to ${VISION_MODEL} for visual analysis`);
-    const description = await this.ollama.chatWithImage(
+    const response = await this.ollama.chatWithImage(
       VISION_MODEL,
-      'Describe everything visible on this web page. List all elements with their exact text labels.',
+      'List every visible element on this web page as structured JSON grouped by page section.',
       imageBase64,
       SYSTEM_PROMPT,
+      ELEMENT_MAP_FORMAT,
     );
 
-    this.log(`Description complete (${description.length} chars)`);
+    const elementMap: PageElementMap = JSON.parse(response);
+    const totalElements = elementMap.reduce((sum, s) => sum + s.elements.length, 0);
+    this.log(`Element map complete: ${elementMap.length} sections, ${totalElements} elements`);
 
     return {
       url: request.url,
-      description,
+      elementMap,
       screenshot,
     };
   }

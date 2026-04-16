@@ -71,6 +71,7 @@ export class OllamaClient {
     prompt: string,
     imageBase64: string,
     systemPrompt?: string,
+    format?: Record<string, unknown>,
   ): Promise<string> {
     const messages: OllamaMessage[] = [];
 
@@ -84,6 +85,6 @@ export class OllamaClient {
       images: [imageBase64],
     });
 
-    return this.chat(model, messages);
+    return this.chat(model, messages, format);
   }
 }
