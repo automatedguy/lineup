@@ -43,7 +43,14 @@ export class OllamaClient {
     const response = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, messages, stream: false, think: false, ...(format && { format }) }),
+      body: JSON.stringify({
+        model,
+        messages,
+        stream: false,
+        think: false,
+        options: { temperature: 0 },
+        ...(format && { format }),
+      }),
       signal: AbortSignal.timeout(this.timeoutMs),
       // @ts-expect-error -- dispatcher is a valid undici option for Node's fetch
       dispatcher: this.dispatcher,

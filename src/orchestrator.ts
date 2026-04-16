@@ -7,6 +7,7 @@ import { WebPlanner } from './agents/web-planner.js';
 import { WebExecutor } from './agents/web-executor.js';
 import { Reporter } from './agents/reporter.js';
 import type { ExplorationPlan } from './types/exploration-plan.js';
+import type { TestPlan } from './types/test-plan.js';
 import type { TestReport } from './types/test-report.js';
 
 export interface OrchestratorConfig {
@@ -45,8 +46,10 @@ export class Orchestrator {
       this.log(`PageDescription: ${pageDescription.url} (${pageDescription.description.length} chars)`);
       this.log(`Description:\n${pageDescription.description}`);
 
-      const testPlan = await this.planner.run(pageDescription);
-      this.log(`TestPlan: ${testPlan.scenarios.length} scenarios`);
+      const rawPlan = await this.planner.run(pageDescription);
+      this.log(`TestPlan: ${rawPlan.scenarios.length} scenarios`);
+
+      const testPlan = this.filterHallucinatedAssertions(rawPlan, pageDescription.description);
       for (const scenario of testPlan.scenarios) {
         this.log(`  Scenario: ${scenario.name} (${scenario.steps.length} steps)`);
         for (const step of scenario.steps) {
@@ -65,6 +68,43 @@ export class Orchestrator {
     } finally {
       await this.navigator.close();
     }
+  }
+
+  private filterHallucinatedAssertions(plan: TestPlan, description: string): TestPlan {
+    const descLower = description.toLowerCase();
+    let dropped = 0;
+
+    const scenarios = plan.scenarios
+      .map((scenario) => {
+        const steps = scenario.steps.filter((step) => {
+          if (step.type !== 'assertion') return true;
+
+          // Extract all quoted text from the assertion instruction
+          const quotes = step.instruction.match(/"([^"]+)"/g);
+          if (!quotes) return true; // no quoted text — keep (state-change assertion)
+
+          // Every quoted string must appear in the page description
+          const grounded = quotes.every((q) => {
+            const text = q.slice(1, -1).toLowerCase();
+            return descLower.includes(text);
+          });
+
+          if (!grounded) {
+            this.log(`  [filtered] ${step.instruction}`);
+            dropped++;
+          }
+          return grounded;
+        });
+
+        return { ...scenario, steps };
+      })
+      .filter((scenario) => scenario.steps.length > 0);
+
+    if (dropped > 0) {
+      this.log(`Filtered ${dropped} hallucinated assertion(s)`);
+    }
+
+    return { ...plan, scenarios };
   }
 
   private log(message: string): void {

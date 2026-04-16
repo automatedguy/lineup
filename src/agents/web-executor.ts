@@ -104,8 +104,12 @@ export class WebExecutor extends BaseAgent<TestPlan, TestLog> {
     // Try fast path: extract quoted text and use waitForElementVisible
     const quoted = instruction.match(/"([^"]+)"/);
     if (quoted) {
-      await this.navigator.waitForElementVisible(quoted[1]);
-      return;
+      try {
+        await this.navigator.waitForElementVisible(quoted[1], 3000);
+        return;
+      } catch {
+        // Fast path failed — fall through to LLM evaluation
+      }
     }
 
     // Fallback: use extract() to ask the LLM to evaluate the assertion

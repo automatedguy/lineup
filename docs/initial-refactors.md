@@ -62,6 +62,16 @@ this.stagehand = new Stagehand({...}); // caller A
 
 **17. Implement BaseAgent pattern (LINEUP-16)** — Extract a `BaseAgent<TInput, TOutput>` abstract class for agents that consume WebNavigator (`WebExplorer`, `WebDescriber`, `WebExecutor`). BaseAgent standardizes WebNavigator injection via `protected readonly navigator`, structured logging via `this.log()`, automatic timing in a template-method `run()`, and browser error handling. Subclasses implement `protected abstract execute(input: TInput): Promise<TOutput>`. Agents that don't need WebNavigator (`WebPlanner`, `Reporter`) continue to implement `Agent<TInput, TOutput>` directly. WebDescriber's constructor calls `super(navigator)` and adds `OllamaClient` as its own dependency.
 
+**18. WebDescriber prompt: factual description only (LINEUP-17)** — WebDescriber's system prompt was framing the task as "documenting for test scenarios," causing the vision model to generate test suggestions instead of pure visual descriptions. Prompt rewritten to produce a factual inventory: exact text labels, visible elements, layout — no recommendations, no test ideas. User prompt also changed to remove testing context. Improves PageDescription quality and reduces hallucinated assertions downstream.
+
+**19. Ground WebPlanner in structured DOM data via observe() (LINEUP-18)** — WebDescriber currently produces only a vision-based free-text description. Adding a `WebNavigator.observe()` call captures a structured element inventory directly from the DOM — exact element names, types, and labels. The `PageDescription` type gains a field for observed elements. WebPlanner receives both the visual description (layout/context) and the DOM inventory (exact elements), making it much harder to hallucinate — the model has a concrete list to draw from rather than interpreting prose. This addresses failures like "settings icon inside search bar" where the vision model mislocated an element that `observe()` would have correctly identified.
+
+## TODO (v2.0):
+
+**20. LLM tool calling for WebPlanner** — Replace structured JSON output with Ollama tool calling (`tools` parameter). Define tools like `create_scenario(name)`, `add_action_step(scenario, instruction)`, `add_assertion_step(scenario, instruction, quoted_text)`. This enables call-time validation (reject hallucinated assertions immediately and force retry) instead of post-filtering. Requires a multi-turn dispatch loop in OllamaClient. qwen3:8b supports tool calling. Trade-off: slower (multiple inference turns) but higher quality plans.
+
+**21. LLM tool calling for Orchestrator (autonomous orchestration)** — Expose each agent as a tool (`explore`, `describe`, `plan`, `execute`, `report`) that an orchestrating LLM can invoke dynamically based on current pipeline state. Replaces the deterministic sequential pipeline with AI-driven orchestration. The same tool calling pattern from #20 scales to this use case. This is the v2.0 orchestration model referenced in CLAUDE.md.
+
 ---
 
 ## Summary
