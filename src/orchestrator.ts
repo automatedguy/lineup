@@ -44,8 +44,14 @@ export class Orchestrator {
       this.log(`ExplorationPlan: ${descriptionRequest.url}`);
 
       const pageDescription = await this.describer.run(descriptionRequest);
-      const totalElements = pageDescription.elementMap.reduce((sum, s) => sum + s.elements.length, 0);
-      this.log(`PageDescription: ${pageDescription.url} (${pageDescription.elementMap.length} sections, ${totalElements} elements)`);
+      const totalElements = pageDescription.elementMap.reduce(
+        (sum, s) => sum + s.elements.length,
+        0,
+      );
+      this.log(
+        `PageDescription: ${pageDescription.url} (${pageDescription.elementMap.length} sections, ${totalElements} elements)`,
+      );
+      this.log(`Element Map:\n${JSON.stringify(pageDescription.elementMap, null, 2)}`);
 
       const rawPlan = await this.planner.run(pageDescription);
       this.log(`TestPlan: ${rawPlan.scenarios.length} scenarios`);
@@ -59,7 +65,9 @@ export class Orchestrator {
       }
 
       const testLog = await this.executor.run(testPlan);
-      this.log(`TestLog: ${testLog.summary.passed}/${testLog.summary.total} passed, ${testLog.summary.failed} failed (${testLog.summary.durationMs}ms)`);
+      this.log(
+        `TestLog: ${testLog.summary.passed}/${testLog.summary.total} passed, ${testLog.summary.failed} failed (${testLog.summary.durationMs}ms)`,
+      );
 
       const report = await this.reporter.run(testLog);
       this.log(`Report: ${report.html.length} chars`);
@@ -73,9 +81,7 @@ export class Orchestrator {
 
   private filterHallucinatedAssertions(plan: TestPlan, pageDescription: PageDescription): TestPlan {
     const knownDescriptions = new Set(
-      pageDescription.elementMap
-        .flatMap((s) => s.elements)
-        .map((e) => e.description.toLowerCase()),
+      pageDescription.elementMap.flatMap((s) => s.elements).map((e) => e.description.toLowerCase()),
     );
     let dropped = 0;
 

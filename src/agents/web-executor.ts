@@ -35,9 +35,7 @@ export class WebExecutor extends BaseAgent<TestPlan, TestLog> {
         stepResults.push(result);
 
         const icon = result.status === 'pass' ? '\u2713' : '\u2717';
-        this.log(
-          `  ${icon} [${step.type}] ${step.instruction} (${result.durationMs}ms)`,
-        );
+        this.log(`  ${icon} [${step.type}] ${step.instruction} (${result.durationMs}ms)`);
         if (result.status === 'fail') {
           this.log(`    Error: ${result.error}`);
           scenarioFailed = true;

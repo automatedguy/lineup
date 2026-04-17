@@ -16,9 +16,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
 
     const html = this.generateHtml(input, timestamp);
 
-    console.log(
-      `[${this.name}] Report generated (${html.length} chars)`,
-    );
+    console.log(`[${this.name}] Report generated (${html.length} chars)`);
 
     return {
       html,
@@ -31,11 +29,8 @@ export class Reporter implements Agent<TestLog, TestReport> {
   private generateHtml(input: TestLog, timestamp: string): string {
     const displayTime = new Date(timestamp).toLocaleString();
     const passRate =
-      input.summary.total > 0
-        ? Math.round((input.summary.passed / input.summary.total) * 100)
-        : 0;
-    const overallStatus =
-      input.summary.failed === 0 ? 'passed' : 'failed';
+      input.summary.total > 0 ? Math.round((input.summary.passed / input.summary.total) * 100) : 0;
+    const overallStatus = input.summary.failed === 0 ? 'passed' : 'failed';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -100,7 +95,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
   </section>`;
   }
 
-  private renderScenarioCard(scenario: ScenarioResult, index: number): string {
+  private renderScenarioCard(scenario: ScenarioResult, _index: number): string {
     const statusIcon = scenario.status === 'pass' ? '&#10003;' : '&#10007;';
     const statusClass = scenario.status === 'pass' ? 'pass' : 'fail';
     const severityHtml =
@@ -165,9 +160,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
     const failRatio = failedSteps.length / scenario.steps.length;
     if (failRatio > 0.5) return 'critical';
 
-    const hasAssertionFailure = failedSteps.some(
-      (s) => s.step.type === 'assertion',
-    );
+    const hasAssertionFailure = failedSteps.some((s) => s.step.type === 'assertion');
     if (hasAssertionFailure) return 'high';
 
     return 'low';

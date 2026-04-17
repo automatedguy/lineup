@@ -8,10 +8,7 @@ const explorer = new WebExplorer(navigator);
 
 const plan: ExplorationPlan = {
   url: 'https://www.google.com',
-  actions: [
-    'Type "click on "Click Me" button"',
-    'Click the Search button',
-  ],
+  actions: ['Type "click on "Click Me" button"', 'Click the Search button'],
 };
 
 try {
