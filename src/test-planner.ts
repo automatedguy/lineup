@@ -13,7 +13,7 @@ const describer = new WebDescriber(navigator, ollama);
 const planner = new WebPlanner(ollama);
 
 const plan: ExplorationPlan = {
-  url: 'https://www.carregistration.com/',
+  url: 'https://www.google.com',
 };
 
 try {
@@ -30,7 +30,7 @@ try {
   console.log('\n--- PageDescription ---');
   console.log(`URL: ${description.url}`);
   console.log(`Screenshot: ${description.screenshot.length} bytes`);
-  console.log(`\nDescription:\n${description.description}`);
+  console.log(`\nElement Map:\n${JSON.stringify(description.elementMap, null, 2)}`);
 
   console.log('Running WebPlanner...');
   const testPlan = await planner.run(description);

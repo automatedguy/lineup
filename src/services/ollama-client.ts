@@ -48,7 +48,7 @@ export class OllamaClient {
         messages,
         stream: false,
         think: false,
-        options: { temperature: 0 },
+        options: { temperature: 0, num_predict: 4096 },
         ...(format && { format }),
       }),
       signal: AbortSignal.timeout(this.timeoutMs),

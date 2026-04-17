@@ -78,7 +78,16 @@ export class WebDescriber extends BaseAgent<DescriptionRequest, PageDescription>
       ELEMENT_MAP_FORMAT,
     );
 
-    const elementMap: PageElementMap = JSON.parse(response);
+    this.log(`Raw response length: ${response.length} chars`);
+
+    let elementMap: PageElementMap;
+    try {
+      elementMap = JSON.parse(response);
+    } catch {
+      this.log(`Failed to parse response. Raw output:\n${response}`);
+      throw new Error('Vision model returned invalid JSON — response may have been truncated');
+    }
+
     const totalElements = elementMap.reduce((sum, s) => sum + s.elements.length, 0);
     this.log(`Element map complete: ${elementMap.length} sections, ${totalElements} elements`);
 
