@@ -11,5 +11,4 @@ export interface TestScenario {
 export interface TestPlan {
   url: string;
   scenarios: TestScenario[];
-  pageDescription: string;
 }

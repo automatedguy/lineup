@@ -7,7 +7,7 @@ const navigator = new WebNavigator({ headless: false });
 const explorer = new WebExplorer(navigator);
 
 const plan: ExplorationPlan = {
-  url: 'https://testpages.eviltester.com/pages/basics/basic-web-page/',
+  url: 'https://www.google.com',
   actions: [
     'Type "click on "Click Me" button"',
     'Click the Search button',

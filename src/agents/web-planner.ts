@@ -4,20 +4,23 @@ import type { PageDescription } from '../types/page-description.js';
 import type { TestPlan, TestScenario } from '../types/test-plan.js';
 import type { OllamaClient } from '../services/ollama-client.js';
 
-const SYSTEM_PROMPT = `You are a senior QA test engineer. Given a detailed description of a web page, generate test scenarios that verify all visible elements are present.
+const SYSTEM_PROMPT = `You are a senior QA test engineer. Given a Page Element Map (JSON), generate test scenarios.
 
-SCENARIO STRUCTURE:
-- Create one scenario per page section (e.g., "Header elements", "Main content", "Footer elements").
-- Each scenario contains only assertion steps that verify elements in that section are displayed.
-- Do NOT click links, buttons, or navigate away from the page.
-- Do NOT create interaction flows — only verify what is visible.
+The Page Element Map lists every visible element on the page grouped by section. Each element has:
+- "description": the visible text or label
+- "type": the element type (link, button, text input, icon, text, heading, etc.)
+- "method": the allowed interaction (click, fill, type, press, scroll, select from dropdown, assert-visible)
 
-ASSERTION RULES:
-1. Each assertion MUST contain the exact expected text in double quotes.
-2. You may ONLY use text that appears in the page description. NEVER invent or guess text.
-3. One assertion per element — verify it is displayed on the page.
+RULES:
+- You may create multiple scenarios per section — group steps logically.
+- Every step MUST reference an element from the map. Do NOT invent elements.
+- Use the element's "method" to determine the step type:
+  - "assert-visible" → assertion step: verify the element is displayed.
+  - Any other method (click, fill, type, press, scroll, select from dropdown) → action step.
+- Assertion instructions MUST contain the element's exact description text in double quotes.
+- Action instructions MUST be natural language that a browser automation tool can execute.
 
-Example for a page with a header containing "Gmail" (link), "Sign In" (button) and a footer containing "About" (link), "Privacy" (link):
+Example for a map with a Header section containing "Gmail" (link, click) and "Sign In" (button, click), and a Footer section containing "About" (link, click) and "Privacy" (link, click):
 
 [
   {
@@ -86,13 +89,15 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   async run(pageDescription: PageDescription): Promise<TestPlan> {
     console.log(`[${this.name}] Generating test plan for ${pageDescription.url}`);
 
+    const elementMapJson = JSON.stringify(pageDescription.elementMap, null, 2);
+
     const response = await this.ollama.chat(
       TEXT_MODEL,
       [
         { role: 'system', content: SYSTEM_PROMPT },
         {
           role: 'user',
-          content: `Generate test scenarios for this page:\n\n${pageDescription.description}`,
+          content: `Generate test scenarios for this page:\n\n${elementMapJson}`,
         },
       ],
       SCENARIOS_FORMAT,
@@ -105,7 +110,6 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
     return {
       url: pageDescription.url,
       scenarios,
-      pageDescription: pageDescription.description,
     };
   }
 

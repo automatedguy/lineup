@@ -7,6 +7,7 @@ import { WebPlanner } from './agents/web-planner.js';
 import { WebExecutor } from './agents/web-executor.js';
 import { Reporter } from './agents/reporter.js';
 import type { ExplorationPlan } from './types/exploration-plan.js';
+import type { PageDescription } from './types/page-description.js';
 import type { TestPlan } from './types/test-plan.js';
 import type { TestReport } from './types/test-report.js';
 
@@ -43,13 +44,13 @@ export class Orchestrator {
       this.log(`ExplorationPlan: ${descriptionRequest.url}`);
 
       const pageDescription = await this.describer.run(descriptionRequest);
-      this.log(`PageDescription: ${pageDescription.url} (${pageDescription.description.length} chars)`);
-      this.log(`Description:\n${pageDescription.description}`);
+      const totalElements = pageDescription.elementMap.reduce((sum, s) => sum + s.elements.length, 0);
+      this.log(`PageDescription: ${pageDescription.url} (${pageDescription.elementMap.length} sections, ${totalElements} elements)`);
 
       const rawPlan = await this.planner.run(pageDescription);
       this.log(`TestPlan: ${rawPlan.scenarios.length} scenarios`);
 
-      const testPlan = this.filterHallucinatedAssertions(rawPlan, pageDescription.description);
+      const testPlan = this.filterHallucinatedAssertions(rawPlan, pageDescription);
       for (const scenario of testPlan.scenarios) {
         this.log(`  Scenario: ${scenario.name} (${scenario.steps.length} steps)`);
         for (const step of scenario.steps) {
@@ -70,8 +71,12 @@ export class Orchestrator {
     }
   }
 
-  private filterHallucinatedAssertions(plan: TestPlan, description: string): TestPlan {
-    const descLower = description.toLowerCase();
+  private filterHallucinatedAssertions(plan: TestPlan, pageDescription: PageDescription): TestPlan {
+    const knownDescriptions = new Set(
+      pageDescription.elementMap
+        .flatMap((s) => s.elements)
+        .map((e) => e.description.toLowerCase()),
+    );
     let dropped = 0;
 
     const scenarios = plan.scenarios
@@ -83,10 +88,10 @@ export class Orchestrator {
           const quotes = step.instruction.match(/"([^"]+)"/g);
           if (!quotes) return true; // no quoted text — keep (state-change assertion)
 
-          // Every quoted string must appear in the page description
+          // Every quoted string must match an element description from the map
           const grounded = quotes.every((q) => {
             const text = q.slice(1, -1).toLowerCase();
-            return descLower.includes(text);
+            return knownDescriptions.has(text);
           });
 
           if (!grounded) {
