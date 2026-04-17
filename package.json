@@ -10,7 +10,11 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/index.ts",
-    "test:run": "tsx"
+    "test:run": "tsx",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "format": "prettier --write src/",
+    "format:check": "prettier --check src/"
   },
   "overrides": {
     "langsmith": "0.5.18"
@@ -22,8 +26,13 @@
     "zod": "^3.24.2"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^22.10.5",
+    "eslint": "^10.2.0",
+    "eslint-config-prettier": "^10.1.8",
+    "prettier": "^3.8.3",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.58.2"
   }
 }

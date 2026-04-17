@@ -46,7 +46,18 @@ const ELEMENT_MAP_FORMAT = {
           properties: {
             description: { type: 'string' },
             type: { type: 'string' },
-            method: { type: 'string', enum: ['click', 'fill', 'type', 'press', 'scroll', 'select from dropdown', 'assert-visible'] },
+            method: {
+              type: 'string',
+              enum: [
+                'click',
+                'fill',
+                'type',
+                'press',
+                'scroll',
+                'select from dropdown',
+                'assert-visible',
+              ],
+            },
           },
         },
       },
@@ -68,33 +79,47 @@ export class WebDescriber extends BaseAgent<DescriptionRequest, PageDescription>
     const screenshot = await this.navigator.screenshot();
 
     const imageBase64 = screenshot.toString('base64');
-
-    this.log(`Sending screenshot to ${VISION_MODEL} for visual analysis`);
-    const response = await this.ollama.chatWithImage(
-      VISION_MODEL,
-      'List every visible element on this web page as structured JSON grouped by page section.',
-      imageBase64,
-      SYSTEM_PROMPT,
-      ELEMENT_MAP_FORMAT,
-    );
-
-    this.log(`Raw response length: ${response.length} chars`);
-
-    let elementMap: PageElementMap;
-    try {
-      elementMap = JSON.parse(response);
-    } catch {
-      this.log(`Failed to parse response. Raw output:\n${response}`);
-      throw new Error('Vision model returned invalid JSON — response may have been truncated');
-    }
-
-    const totalElements = elementMap.reduce((sum, s) => sum + s.elements.length, 0);
-    this.log(`Element map complete: ${elementMap.length} sections, ${totalElements} elements`);
+    const elementMap = await this.describeWithRetry(imageBase64);
 
     return {
       url: request.url,
       elementMap,
       screenshot,
     };
+  }
+
+  private async describeWithRetry(imageBase64: string, maxRetries = 2): Promise<PageElementMap> {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      this.log(`Sending screenshot to ${VISION_MODEL} for visual analysis (attempt ${attempt}/${maxRetries})`);
+
+      const response = await this.ollama.chatWithImage(
+        VISION_MODEL,
+        'List every visible element on this web page as structured JSON grouped by page section.',
+        imageBase64,
+        SYSTEM_PROMPT,
+        ELEMENT_MAP_FORMAT,
+      );
+
+      this.log(`Raw response length: ${response.length} chars`);
+
+      if (!response.trim()) {
+        this.log('Vision model returned empty response');
+        if (attempt < maxRetries) continue;
+        throw new Error('Vision model returned empty response after all retries');
+      }
+
+      try {
+        const elementMap = JSON.parse(response) as PageElementMap;
+        const totalElements = elementMap.reduce((sum, s) => sum + s.elements.length, 0);
+        this.log(`Element map complete: ${elementMap.length} sections, ${totalElements} elements`);
+        return elementMap;
+      } catch {
+        this.log(`Failed to parse response. Raw output:\n${response}`);
+        if (attempt < maxRetries) continue;
+        throw new Error('Vision model returned invalid JSON after all retries');
+      }
+    }
+
+    throw new Error('Unreachable');
   }
 }

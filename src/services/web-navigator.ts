@@ -65,15 +65,9 @@ export class WebNavigator {
     return this.withBrowserGuard(() => this.getStagehand().act(instruction));
   }
 
-  async extract<T extends z.ZodTypeAny>(
-    instruction: string,
-    schema: T,
-  ): Promise<z.infer<T>> {
+  async extract<T extends z.ZodTypeAny>(instruction: string, schema: T): Promise<z.infer<T>> {
     return this.withBrowserGuard(
-      () =>
-        this.getStagehand().extract(instruction, schema) as Promise<
-          z.infer<T>
-        >,
+      () => this.getStagehand().extract(instruction, schema) as Promise<z.infer<T>>,
     );
   }
 
@@ -87,9 +81,7 @@ export class WebNavigator {
   }
 
   async waitForPageLoad(): Promise<void> {
-    return this.withBrowserGuard(() =>
-      this.getPage().waitForLoadState('domcontentloaded'),
-    );
+    return this.withBrowserGuard(() => this.getPage().waitForLoadState('domcontentloaded'));
   }
 
   async waitForElementVisible(text: string, timeout = 10000): Promise<void> {
@@ -101,10 +93,7 @@ export class WebNavigator {
     });
   }
 
-  async waitForElementNotVisible(
-    text: string,
-    timeout = 10000,
-  ): Promise<void> {
+  async waitForElementNotVisible(text: string, timeout = 10000): Promise<void> {
     await this.withBrowserGuard(async () => {
       await this.getPage().waitForSelector(`text="${text}"`, {
         state: 'hidden',
@@ -149,9 +138,9 @@ export class WebNavigator {
       if (this.isBrowserDead(error)) {
         this.stagehand = null;
         this.initPromise = null;
-        throw new Error(
-          'Browser crashed or was closed unexpectedly. Call init() to restart.',
-        );
+        throw new Error('Browser crashed or was closed unexpectedly. Call init() to restart.', {
+          cause: error,
+        });
       }
       throw error;
     }
@@ -159,9 +148,7 @@ export class WebNavigator {
 
   private isBrowserDead(error: unknown): boolean {
     const msg = error instanceof Error ? error.message : '';
-    return /target closed|browser.*closed|connection closed|protocol error/i.test(
-      msg,
-    );
+    return /target closed|browser.*closed|connection closed|protocol error/i.test(msg);
   }
 
   private getStagehand(): Stagehand {

@@ -8,5 +8,4 @@ export interface TestReport {
     failed: number;
     durationMs: number;
   };
-  filePath?: string;
 }

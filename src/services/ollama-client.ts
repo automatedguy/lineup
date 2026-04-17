@@ -24,10 +24,7 @@ export class OllamaClient {
   private readonly dispatcher: Agent;
 
   constructor(config: OllamaClientConfig = {}) {
-    this.baseUrl =
-      config.baseUrl ??
-      process.env.OLLAMA_BASE_URL ??
-      'http://localhost:11434';
+    this.baseUrl = config.baseUrl ?? process.env.OLLAMA_BASE_URL ?? 'http://localhost:11434';
     this.timeoutMs = config.timeoutMs ?? 900_000; // 15 minutes — vision models are slow on local hardware
     this.dispatcher = new Agent({
       headersTimeout: this.timeoutMs,
@@ -57,9 +54,7 @@ export class OllamaClient {
     });
 
     if (!response.ok) {
-      throw new Error(
-        `Ollama API error: ${response.status} ${response.statusText}`,
-      );
+      throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
     }
 
     const data = (await response.json()) as OllamaChatResponse;

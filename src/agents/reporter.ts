@@ -10,15 +10,11 @@ export class Reporter implements Agent<TestLog, TestReport> {
   async run(input: TestLog): Promise<TestReport> {
     const timestamp = new Date().toISOString();
 
-    console.log(
-      `[${this.name}] Generating report for ${input.url} (${input.summary.total} scenarios)`,
-    );
+    this.log(`Generating report for ${input.url} (${input.summary.total} scenarios)`);
 
     const html = this.generateHtml(input, timestamp);
 
-    console.log(
-      `[${this.name}] Report generated (${html.length} chars)`,
-    );
+    this.log(`Report generated (${html.length} chars)`);
 
     return {
       html,
@@ -31,11 +27,8 @@ export class Reporter implements Agent<TestLog, TestReport> {
   private generateHtml(input: TestLog, timestamp: string): string {
     const displayTime = new Date(timestamp).toLocaleString();
     const passRate =
-      input.summary.total > 0
-        ? Math.round((input.summary.passed / input.summary.total) * 100)
-        : 0;
-    const overallStatus =
-      input.summary.failed === 0 ? 'passed' : 'failed';
+      input.summary.total > 0 ? Math.round((input.summary.passed / input.summary.total) * 100) : 0;
+    const overallStatus = input.summary.failed === 0 ? 'passed' : 'failed';
 
     return `<!DOCTYPE html>
 <html lang="en">
@@ -100,7 +93,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
   </section>`;
   }
 
-  private renderScenarioCard(scenario: ScenarioResult, index: number): string {
+  private renderScenarioCard(scenario: ScenarioResult, _index: number): string {
     const statusIcon = scenario.status === 'pass' ? '&#10003;' : '&#10007;';
     const statusClass = scenario.status === 'pass' ? 'pass' : 'fail';
     const severityHtml =
@@ -165,9 +158,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
     const failRatio = failedSteps.length / scenario.steps.length;
     if (failRatio > 0.5) return 'critical';
 
-    const hasAssertionFailure = failedSteps.some(
-      (s) => s.step.type === 'assertion',
-    );
+    const hasAssertionFailure = failedSteps.some((s) => s.step.type === 'assertion');
     if (hasAssertionFailure) return 'high';
 
     return 'low';
@@ -184,6 +175,10 @@ export class Reporter implements Agent<TestLog, TestReport> {
 
   private encodeScreenshot(buffer: Buffer): string {
     return `data:image/png;base64,${buffer.toString('base64')}`;
+  }
+
+  private log(message: string): void {
+    console.log(`[${this.name}] ${message}`);
   }
 
   private escapeHtml(text: string): string {
