@@ -10,13 +10,11 @@ export class Reporter implements Agent<TestLog, TestReport> {
   async run(input: TestLog): Promise<TestReport> {
     const timestamp = new Date().toISOString();
 
-    console.log(
-      `[${this.name}] Generating report for ${input.url} (${input.summary.total} scenarios)`,
-    );
+    this.log(`Generating report for ${input.url} (${input.summary.total} scenarios)`);
 
     const html = this.generateHtml(input, timestamp);
 
-    console.log(`[${this.name}] Report generated (${html.length} chars)`);
+    this.log(`Report generated (${html.length} chars)`);
 
     return {
       html,
@@ -177,6 +175,10 @@ export class Reporter implements Agent<TestLog, TestReport> {
 
   private encodeScreenshot(buffer: Buffer): string {
     return `data:image/png;base64,${buffer.toString('base64')}`;
+  }
+
+  private log(message: string): void {
+    console.log(`[${this.name}] ${message}`);
   }
 
   private escapeHtml(text: string): string {

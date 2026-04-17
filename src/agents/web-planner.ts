@@ -87,7 +87,7 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   }
 
   async run(pageDescription: PageDescription): Promise<TestPlan> {
-    console.log(`[${this.name}] Generating test plan for ${pageDescription.url}`);
+    this.log(`Generating test plan for ${pageDescription.url}`);
 
     const elementMapJson = JSON.stringify(pageDescription.elementMap, null, 2);
 
@@ -103,9 +103,9 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
       SCENARIOS_FORMAT,
     );
 
-    console.log(`[${this.name}] Parsing test scenarios`);
+    this.log('Parsing test scenarios');
     const scenarios = this.parseScenarios(response);
-    console.log(`[${this.name}] Generated ${scenarios.length} scenarios`);
+    this.log(`Generated ${scenarios.length} scenarios`);
 
     return {
       url: pageDescription.url,
@@ -116,5 +116,9 @@ export class WebPlanner implements Agent<PageDescription, TestPlan> {
   private parseScenarios(response: string): TestScenario[] {
     const parsed = JSON.parse(response);
     return scenariosSchema.parse(parsed);
+  }
+
+  private log(message: string): void {
+    console.log(`[${this.name}] ${message}`);
   }
 }
