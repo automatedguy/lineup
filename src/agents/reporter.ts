@@ -21,6 +21,7 @@ export class Reporter implements Agent<TestLog, TestReport> {
       url: input.url,
       timestamp,
       summary: input.summary,
+      gaps: input.gaps,
     };
   }
 
@@ -46,6 +47,8 @@ export class Reporter implements Agent<TestLog, TestReport> {
   </header>
 
   ${this.renderSummarySection(input.summary, passRate, overallStatus)}
+
+  ${input.gaps?.length ? this.renderGapsSection(input.gaps) : ''}
 
   <section class="scenarios">
     <h2>Scenarios</h2>
@@ -90,6 +93,23 @@ export class Reporter implements Agent<TestLog, TestReport> {
     <div class="overall-status status-${overallStatus}">
       ${overallStatus === 'passed' ? '&#10003;' : '&#10007;'} ${overallStatus.toUpperCase()}
     </div>
+  </section>`;
+  }
+
+  private renderGapsSection(gaps: string[]): string {
+    const items = gaps
+      .map(
+        (gap) =>
+          `<li class="gap-item"><span class="badge severity-high">GAP</span><span>${this.escapeHtml(gap)}</span></li>`,
+      )
+      .join('\n      ');
+
+    return `<section class="spec-gaps">
+    <h2>Specification Gaps</h2>
+    <p class="spec-gaps-subtitle">${gaps.length} requirement${gaps.length === 1 ? '' : 's'} from the Jira spec not found on the page</p>
+    <ul class="gap-list">
+      ${items}
+    </ul>
   </section>`;
   }
 
@@ -282,6 +302,46 @@ export class Reporter implements Agent<TestLog, TestReport> {
 
     .status-passed { background: var(--color-pass-bg); color: var(--color-pass); }
     .status-failed { background: var(--color-fail-bg); color: var(--color-fail); }
+
+    .spec-gaps {
+      margin-bottom: 2rem;
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-left: 4px solid var(--color-high);
+      border-radius: 8px;
+      padding: 1.25rem;
+    }
+
+    .spec-gaps h2 {
+      font-size: 1.3rem;
+      margin-bottom: 0.25rem;
+    }
+
+    .spec-gaps-subtitle {
+      color: var(--color-text-secondary);
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+    }
+
+    .gap-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+
+    .gap-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.5rem 0;
+      border-bottom: 1px solid var(--color-border);
+      font-size: 0.9rem;
+    }
+
+    .gap-item:last-child {
+      border-bottom: none;
+    }
 
     .scenarios h2 {
       font-size: 1.3rem;

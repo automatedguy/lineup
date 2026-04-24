@@ -23,4 +23,5 @@ export interface TestLog {
     failed: number;
     durationMs: number;
   };
+  gaps?: string[];
 }

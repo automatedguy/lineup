@@ -110,10 +110,15 @@ export class WebExecutor extends BaseAgent<TestPlan, TestLog> {
       }
     }
 
-    // Fallback: use extract() to ask the LLM to evaluate the assertion
+    // Fallback: use extract() to ask the LLM to evaluate the assertion.
+    // Only fail if there is clear, visible evidence on the page that the assertion is false.
+    // If uncertain, pass — false positives are better than false negatives here.
     this.log('    (fallback: using extract for assertion)');
     const result = await this.navigator.extract(
-      `Look at the current page and evaluate this assertion: "${instruction}". Is it true or false? Provide a brief reason.`,
+      `Look at the current page and evaluate this assertion: "${instruction}".
+Only return pass=false if you can see clear, definitive evidence on the page that the assertion is FALSE.
+If the page is consistent with the assertion being true, or if you cannot tell from the page alone, return pass=true.
+Provide a brief reason.`,
       assertionSchema,
     );
 

@@ -1,6 +1,7 @@
 import { WebNavigator } from './services/web-navigator.js';
 import { OllamaClient } from './services/ollama-client.js';
 import type { OllamaClientConfig } from './services/ollama-client.js';
+import { JiraClient } from './services/jira-client.js';
 import { WebExplorer } from './agents/web-explorer.js';
 import { WebDescriber } from './agents/web-describer.js';
 import { WebPlanner } from './agents/web-planner.js';
@@ -53,8 +54,16 @@ export class Orchestrator {
       );
       this.log(`Element Map:\n${JSON.stringify(pageDescription.elementMap, null, 2)}`);
 
-      const rawPlan = await this.planner.run(pageDescription);
-      this.log(`TestPlan: ${rawPlan.scenarios.length} scenarios`);
+      let jiraSpec: import('./types/jira-spec.js').JiraSpec | undefined;
+      if (explorationPlan.jiraTicket) {
+        this.log(`Fetching Jira spec for ${explorationPlan.jiraTicket}`);
+        const jiraClient = new JiraClient();
+        jiraSpec = await jiraClient.getSpec(explorationPlan.jiraTicket);
+        this.log(`Jira spec: "${jiraSpec.summary}"`);
+      }
+
+      const rawPlan = await this.planner.run({ pageDescription, jiraSpec });
+      this.log(`TestPlan: ${rawPlan.scenarios.length} scenarios, ${rawPlan.gaps?.length ?? 0} gap(s)`);
 
       const testPlan = this.filterHallucinatedAssertions(rawPlan, pageDescription);
       for (const scenario of testPlan.scenarios) {
@@ -63,13 +72,18 @@ export class Orchestrator {
           this.log(`    [${step.type}] ${step.instruction}`);
         }
       }
+      if (testPlan.gaps?.length) {
+        for (const gap of testPlan.gaps) {
+          this.log(`  [GAP] ${gap}`);
+        }
+      }
 
       const testLog = await this.executor.run(testPlan);
       this.log(
         `TestLog: ${testLog.summary.passed}/${testLog.summary.total} passed, ${testLog.summary.failed} failed (${testLog.summary.durationMs}ms)`,
       );
 
-      const report = await this.reporter.run(testLog);
+      const report = await this.reporter.run({ ...testLog, gaps: testPlan.gaps });
       this.log(`Report: ${report.html.length} chars`);
 
       this.log('Pipeline complete.');

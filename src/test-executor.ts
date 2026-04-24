@@ -1,13 +1,16 @@
-import 'dotenv/config';
+import dotenv from 'dotenv';
+dotenv.config({ override: true });
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { WebNavigator } from './services/web-navigator.js';
 import { OllamaClient } from './services/ollama-client.js';
+import { JiraClient } from './services/jira-client.js';
 import { WebExplorer } from './agents/web-explorer.js';
 import { WebDescriber } from './agents/web-describer.js';
 import { WebPlanner } from './agents/web-planner.js';
 import { WebExecutor } from './agents/web-executor.js';
 import { Reporter } from './agents/reporter.js';
 import type { ExplorationPlan } from './types/exploration-plan.js';
+import type { JiraSpec } from './types/jira-spec.js';
 
 const navigator = new WebNavigator({ headless: false });
 const ollama = new OllamaClient();
@@ -19,7 +22,16 @@ const reporter = new Reporter();
 
 const plan: ExplorationPlan = {
   url: 'https://www.google.com',
+  jiraTicket: 'BA-1',
 };
+
+// Fetch Jira spec before starting the browser to avoid Playwright network interference
+let jiraSpec: JiraSpec | undefined;
+if (plan.jiraTicket) {
+  console.log(`Fetching Jira spec for ${plan.jiraTicket}...`);
+  jiraSpec = await new JiraClient().getSpec(plan.jiraTicket);
+  console.log(`Jira spec: "${jiraSpec.summary}"`);
+}
 
 try {
   console.log('Initializing WebNavigator...');
@@ -37,7 +49,7 @@ try {
   console.log(`\nElement Map:\n${JSON.stringify(description.elementMap, null, 2)}`);
 
   console.log('Running WebPlanner...');
-  const testPlan = await planner.run(description);
+  const testPlan = await planner.run({ pageDescription: description, jiraSpec });
 
   console.log('\n--- TestPlan ---');
   console.log(`URL: ${testPlan.url}`);
@@ -60,7 +72,7 @@ try {
   );
 
   console.log('Running Reporter...');
-  const report = await reporter.run(testLog);
+  const report = await reporter.run({ ...testLog, gaps: testPlan.gaps });
 
   const reportDir = 'reports';
   mkdirSync(reportDir, { recursive: true });

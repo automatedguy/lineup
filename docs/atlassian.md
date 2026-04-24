@@ -17,3 +17,4 @@ WebPlanner Agent - [LINEUP-8](https://automationthings.atlassian.net/browse/LINE
 WebExecutor Agent - [LINEUP-9](https://automationthings.atlassian.net/browse/LINEUP-9)
 Reporter Service - [LINEUP-10](https://automationthings.atlassian.net/browse/LINEUP-10)
 
+**Benchmark App Jira instance:** <https://automationthings.atlassian.net/browse/>

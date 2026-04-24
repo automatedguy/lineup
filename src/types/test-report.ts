@@ -8,4 +8,5 @@ export interface TestReport {
     failed: number;
     durationMs: number;
   };
+  gaps?: string[];
 }

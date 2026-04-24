@@ -33,7 +33,7 @@ try {
   console.log(`\nElement Map:\n${JSON.stringify(description.elementMap, null, 2)}`);
 
   console.log('Running WebPlanner...');
-  const testPlan = await planner.run(description);
+  const testPlan = await planner.run({ pageDescription: description });
 
   console.log('\n--- TestPlan ---');
   console.log(`URL: ${testPlan.url}`);
