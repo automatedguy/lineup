@@ -1,7 +1,7 @@
 import { WebNavigator } from './services/web-navigator.js';
 import { OllamaClient } from './services/ollama-client.js';
 import type { OllamaClientConfig } from './services/ollama-client.js';
-import { JiraClient } from './services/jira-client.js';
+import { fetchJiraSpec } from './services/fetch-jira-spec.js';
 import { WebExplorer } from './agents/web-explorer.js';
 import { WebDescriber } from './agents/web-describer.js';
 import { WebPlanner } from './agents/web-planner.js';
@@ -57,8 +57,7 @@ export class Orchestrator {
       let jiraSpec: import('./types/jira-spec.js').JiraSpec | undefined;
       if (explorationPlan.jiraTicket) {
         this.log(`Fetching Jira spec for ${explorationPlan.jiraTicket}`);
-        const jiraClient = new JiraClient();
-        jiraSpec = await jiraClient.getSpec(explorationPlan.jiraTicket);
+        jiraSpec = await fetchJiraSpec(explorationPlan.jiraTicket);
         this.log(`Jira spec: "${jiraSpec.summary}"`);
       }
 

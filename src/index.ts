@@ -6,7 +6,7 @@ export type { WebNavigatorConfig, NetworkEntry } from './services/web-navigator.
 export { OllamaClient } from './services/ollama-client.js';
 export type { OllamaClientConfig, OllamaMessage } from './services/ollama-client.js';
 
-export { JiraClient } from './services/jira-client.js';
+export { fetchJiraSpec } from './services/fetch-jira-spec.js';
 
 export { WebExplorer } from './agents/web-explorer.js';
 export { WebDescriber } from './agents/web-describer.js';

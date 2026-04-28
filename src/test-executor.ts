@@ -3,7 +3,7 @@ dotenv.config({ override: true });
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { WebNavigator } from './services/web-navigator.js';
 import { OllamaClient } from './services/ollama-client.js';
-import { JiraClient } from './services/jira-client.js';
+import { fetchJiraSpec } from './services/fetch-jira-spec.js';
 import { WebExplorer } from './agents/web-explorer.js';
 import { WebDescriber } from './agents/web-describer.js';
 import { WebPlanner } from './agents/web-planner.js';
@@ -29,7 +29,7 @@ const plan: ExplorationPlan = {
 let jiraSpec: JiraSpec | undefined;
 if (plan.jiraTicket) {
   console.log(`Fetching Jira spec for ${plan.jiraTicket}...`);
-  jiraSpec = await new JiraClient().getSpec(plan.jiraTicket);
+  jiraSpec = await fetchJiraSpec(plan.jiraTicket);
   console.log(`Jira spec: "${jiraSpec.summary}"`);
 }
 
